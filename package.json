@@ -1,0 +1,51 @@
+{
+  "name": "ludarium",
+  "version": "0.1.0",
+  "description": "A local application for tracking video games and play sessions",
+  "author": "Joaquín Ossorio-Castillo",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:backend": "python scripts/build_backend.py",
+    "build": "npm run build:backend && electron-builder --win"
+  },
+  "private": true,
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.ludarium.app",
+    "productName": "Ludarium",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": "app",
+        "filter": [
+          "static/**/*",
+          "templates/**/*"
+        ]
+      },
+      {
+        "from": "build/backend",
+        "to": "backend",
+        "filter": [
+          "ludarium-backend.exe"
+        ]
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "static/logo.ico",
+      "signAndEditExecutable": false
+    }
+  }
+}

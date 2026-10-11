@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Library{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow" data-i18n="library.eyebrow">Your collection</p>
+        <h1 data-i18n="nav.library">Library</h1>
+    </div>
+    <a href="{{ url_for('new_game') }}" class="btn btn-primary" data-i18n="nav.addGame">+ Add Game</a>
+</div>
+
+<form method="GET" action="{{ url_for('library') }}" class="filter-panel">
+    <div class="search-wrap">
+        <span>⌕</span>
+        <input type="search" name="q" value="{{ query }}" placeholder="Search title, developer, publisher..." data-i18n-placeholder="library.search">
+    </div>
+    <select name="status" onchange="this.form.submit()">
+        <option value="" {% if not status_filter %}selected{% endif %} data-i18n="library.allStatuses">All statuses</option>
+        {% for value, label in status_labels.items() %}
+        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <select name="platform" onchange="this.form.submit()">
+        <option value="" data-i18n="library.allPlatforms">All platforms</option>
+        {% for platform in platforms %}
+        <option value="{{ platform.id }}" {% if platform_filter == platform.id %}selected{% endif %}>{{ platform.name }} ({{ platform.game_count }})</option>
+        {% endfor %}
+    </select>
+    <select name="genre" onchange="this.form.submit()">
+        <option value="" data-i18n="library.allGenres">All genres</option>
+        {% for genre in genres %}
+        <option value="{{ genre }}" {% if genre_filter == genre %}selected{% endif %}>{{ genre }}</option>
+        {% endfor %}
+    </select>
+    <select name="sort" onchange="this.form.submit()">
+        <option value="title" {% if sort == 'title' %}selected{% endif %} data-i18n="library.sortTitle">Title</option>
+        <option value="date_added" {% if sort == 'date_added' %}selected{% endif %} data-i18n="library.sortAdded">Date added</option>
+        <option value="release_year" {% if sort == 'release_year' %}selected{% endif %} data-i18n="library.sortRelease">Release year</option>
+        <option value="rating" {% if sort == 'rating' %}selected{% endif %} data-i18n="library.sortRating">Rating</option>
+        <option value="status" {% if sort == 'status' %}selected{% endif %} data-i18n="library.sortStatus">Status</option>
+    </select>
+    <select name="order" onchange="this.form.submit()" aria-label="Sort order">
+        <option value="asc" {% if order == 'asc' %}selected{% endif %}>↑ Asc</option>
+        <option value="desc" {% if order == 'desc' %}selected{% endif %}>↓ Desc</option>
+    </select>
+    <input type="hidden" name="view" value="{{ view }}">
+    <button type="submit" class="btn btn-secondary" data-i18n="common.filter">Filter</button>
+    <div class="view-switcher">
+        <a href="{{ url_for('library', q=query, status=status_filter, platform=platform_filter or '', genre=genre_filter, sort=sort, order=order, view='card') }}" class="{% if view == 'card' %}active{% endif %}" title="Card view">▦</a>
+        <a href="{{ url_for('library', q=query, status=status_filter, platform=platform_filter or '', genre=genre_filter, sort=sort, order=order, view='list') }}" class="{% if view == 'list' %}active{% endif %}" title="List view">☷</a>
+    </div>
+</form>
+
+{% if games %}
+    {% if view == 'list' %}
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th data-i18n="game.title">Title</th><th data-i18n="game.platforms">Platforms</th><th data-i18n="game.status">Status</th><th data-i18n="game.release">Release</th><th data-i18n="game.rating">Rating</th></tr></thead>
+            <tbody>
+            {% for game in games %}
+                <tr class="clickable-row" onclick="window.location='{{ url_for('game_detail', game_id=game.id) }}'">
+                    <td><strong>{{ game.title }}</strong>{% if game.series %}<span class="table-sub">{{ game.series }}</span>{% endif %}</td>
+                    <td>{{ game.platform_names or '—' }}</td>
+                    <td><span class="badge status-{{ game.status }}">{{ game.status_label }}</span></td>
+                    <td>{{ game.release_year or '—' }}</td>
+                    <td>{% if game.rating is not none %}★ {{ game.rating_label }}{% else %}—{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="catalog-grid">
+        {% for game in games %}
+        <a class="game-card" href="{{ url_for('game_detail', game_id=game.id) }}">
+            <div class="game-card-cover">
+                {% if game.media_id %}
+                <img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}" loading="lazy">
+                {% else %}
+                <div class="cover-placeholder"><span>🎮</span><small>Ludarium</small></div>
+                {% endif %}
+                <span class="badge status-{{ game.status }}">{{ game.status_label }}</span>
+            </div>
+            <div class="game-card-body">
+                <h3>{{ game.title }}</h3>
+                <p class="game-card-meta">{{ game.release_year or 'Release unknown' }}{% if game.platform_names %} · {{ game.platform_names }}{% endif %}</p>
+                {% if game.rating is not none %}<p class="game-rating">★ {{ game.rating_label }}</p>{% endif %}
+                {% if game.genres %}<p class="tag-line">{{ game.genres }}</p>{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% else %}
+<div class="empty-state large">
+    <span class="empty-icon">🎮</span>
+    <h2 data-i18n="library.emptyTitle">No games found</h2>
+    <p data-i18n="library.emptyHint">Add a game or adjust your filters to start building your library.</p>
+    <a href="{{ url_for('new_game') }}" class="btn btn-primary" data-i18n="nav.addGame">+ Add Game</a>
+</div>
+{% endif %}
+{% endblock %}

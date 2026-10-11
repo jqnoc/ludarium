@@ -1,0 +1,87 @@
+(function () {
+    "use strict";
+
+    var storageKey = "ludarium_lang";
+    var translations = {
+        "nav.dashboard": { en: "Dashboard", es: "Panel" },
+        "nav.library": { en: "Library", es: "Biblioteca" },
+        "nav.sessions": { en: "Sessions", es: "Sesiones" },
+        "nav.stats": { en: "Stats", es: "Estadísticas" },
+        "nav.activity": { en: "Activity", es: "Actividad" },
+        "nav.index": { en: "Index", es: "Índice" },
+        "nav.addGame": { en: "+ Game", es: "+ Juego" },
+        "footer.copy": { en: "Ludarium", es: "Ludarium" },
+        "dash.eyebrow": { en: "Your play history", es: "Tu historial de juego" },
+        "dash.title": { en: "Dashboard", es: "Panel" },
+        "dash.totalGames": { en: "Games", es: "Juegos" },
+        "dash.playing": { en: "Playing", es: "Jugando" },
+        "dash.completed": { en: "Completed", es: "Completados" },
+        "dash.playTime": { en: "Play time", es: "Tiempo de juego" },
+        "dash.backlog": { en: "Backlog", es: "Pendientes" },
+        "dash.currentlyPlaying": { en: "Currently Playing", es: "Jugando ahora" },
+        "dash.recentSessions": { en: "Recent Sessions", es: "Sesiones recientes" },
+        "dash.recentlyAdded": { en: "Recently Added", es: "Añadidos recientemente" },
+        "dash.noSessions": { en: "No play sessions yet. Log your first one from the Sessions tab.", es: "Aún no hay sesiones. Registra la primera desde Sesiones." },
+        "dash.noGames": { en: "Your library is empty.", es: "Tu biblioteca está vacía." },
+        "library.eyebrow": { en: "Your collection", es: "Tu colección" },
+        "library.search": { en: "Search title, developer, publisher...", es: "Buscar título, desarrollador, editor..." },
+        "library.allStatuses": { en: "All statuses", es: "Todos los estados" },
+        "library.allPlatforms": { en: "All platforms", es: "Todas las plataformas" },
+        "library.allGenres": { en: "All genres", es: "Todos los géneros" },
+        "library.sortTitle": { en: "Title", es: "Título" },
+        "library.sortAdded": { en: "Date added", es: "Fecha de añadido" },
+        "library.sortRelease": { en: "Release year", es: "Año de lanzamiento" },
+        "library.sortRating": { en: "Rating", es: "Valoración" },
+        "library.sortStatus": { en: "Status", es: "Estado" },
+        "library.emptyTitle": { en: "No games found", es: "No se encontraron juegos" },
+        "library.emptyHint": { en: "Add a game or adjust your filters to start building your library.", es: "Añade un juego o ajusta los filtros para empezar." },
+        "sessions.eyebrow": { en: "Time spent playing", es: "Tiempo jugando" },
+        "sessions.logTitle": { en: "Log a play session", es: "Registrar sesión" },
+        "common.viewAll": { en: "View all →", es: "Ver todo →" },
+        "common.filter": { en: "Filter", es: "Filtrar" },
+        "common.create": { en: "Create", es: "Crear" },
+        "common.rename": { en: "Rename", es: "Renombrar" },
+        "common.delete": { en: "Delete", es: "Eliminar" },
+        "common.continue": { en: "Continue", es: "Continuar" },
+        "common.backToLibrary": { en: "Back to library", es: "Volver a la biblioteca" },
+        "library.manageTitle": { en: "Manage Libraries", es: "Gestionar bibliotecas" },
+        "library.createNew": { en: "Create New Library", es: "Crear nueva biblioteca" },
+        "library.existing": { en: "Existing Libraries", es: "Bibliotecas existentes" },
+        "backup.title": { en: "Database Backup", es: "Copia de seguridad" },
+        "backup.create": { en: "Create Backup Now", es: "Crear copia ahora" },
+        "backup.shuttingDown": { en: "Backing up and closing...", es: "Guardando copia y cerrando..." },
+        "users.subtitle": { en: "Your personal video game library", es: "Tu biblioteca personal de videojuegos" },
+        "users.select": { en: "Select a user", es: "Selecciona un usuario" },
+        "users.create": { en: "Create a new user", es: "Crear un usuario nuevo" },
+        "users.name": { en: "Name", es: "Nombre" },
+        "users.switch": { en: "Switch user", es: "Cambiar de usuario" }
+    };
+
+    function applyLanguage(language) {
+        var selected = language === "es" ? "es" : "en";
+        localStorage.setItem(storageKey, selected);
+        document.querySelectorAll("[data-i18n]").forEach(function (element) {
+            var value = translations[element.dataset.i18n];
+            if (value) element.textContent = value[selected] || value.en;
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(function (element) {
+            var value = translations[element.dataset.i18nPlaceholder];
+            if (value) element.placeholder = value[selected] || value.en;
+        });
+        document.querySelectorAll(".lang-btn").forEach(function (button) {
+            button.classList.toggle("active", button.dataset.lang === selected);
+        });
+    }
+
+    window.ludariumTranslate = function (key) {
+        var language = localStorage.getItem(storageKey) || "en";
+        return translations[key] ? (translations[key][language] || translations[key].en) : key;
+    };
+
+    document.addEventListener("DOMContentLoaded", function () {
+        applyLanguage(localStorage.getItem(storageKey) || "en");
+        document.querySelectorAll(".lang-btn").forEach(function (button) {
+            button.addEventListener("click", function () { applyLanguage(button.dataset.lang); });
+        });
+    });
+}());

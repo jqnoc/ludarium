@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - {{ game.title }}{% endblock %}
+
+{% block content %}
+<div class="detail-back"><a href="{{ url_for('library') }}">← <span data-i18n="common.backToLibrary">Back to library</span></a></div>
+<section class="detail-hero">
+    <div class="detail-cover">
+        {% if media %}
+        <img src="{{ url_for('game_cover', game_id=game.id) }}" alt="{{ game.title }}">
+        {% else %}
+        <div class="cover-placeholder cover-placeholder-large"><span>🎮</span><small>Ludarium</small></div>
+        {% endif %}
+    </div>
+    <div class="detail-summary">
+        <div class="detail-title-row">
+            <div>
+                <p class="eyebrow">{{ game.game_type|replace('_', ' ')|title }}</p>
+                <h1>{{ game.title }}</h1>
+                {% if game.original_title and game.original_title != game.title %}<p class="detail-subtitle">{{ game.original_title }}</p>{% endif %}
+            </div>
+            <span class="badge badge-large status-{{ game.status }}">{{ status_labels.get(game.status, game.status) }}</span>
+        </div>
+        {% if game.rating is not none %}<div class="detail-rating">★ {{ '%.1f'|format(game.rating) }} <span>/ 10</span></div>{% endif %}
+        <div class="detail-meta-grid">
+            {% if game.release_date or game.release_year %}<div><span>Release</span><strong>{{ game.release_date or game.release_year }}</strong></div>{% endif %}
+            {% if platforms %}<div><span>Platforms</span><strong>{{ platforms|join(', ') }}</strong></div>{% endif %}
+            {% if game.developers %}<div><span>Developer(s)</span><strong>{{ game.developers }}</strong></div>{% endif %}
+            {% if game.publishers %}<div><span>Publisher(s)</span><strong>{{ game.publishers }}</strong></div>{% endif %}
+            {% if game.series %}<div><span>Series</span><strong>{{ game.series }}{% if game.series_position %} #{{ game.series_position }}{% endif %}</strong></div>{% endif %}
+            {% if game.ownership %}<div><span>Access</span><strong>{{ game.ownership|replace('_', ' ')|title }}</strong></div>{% endif %}
+            {% if game.edition %}<div><span>Edition</span><strong>{{ game.edition }}</strong></div>{% endif %}
+            {% if game.estimated_minutes %}<div><span>Estimated time</span><strong>{{ game.estimated_minutes|duration }}</strong></div>{% endif %}
+        </div>
+        {% if game.genres or game.themes or tags %}
+        <div class="tag-list">
+            {% for value in (game.genres or '').split(';') if value.strip() %}<span class="tag">{{ value.strip() }}</span>{% endfor %}
+            {% for value in (game.themes or '').split(';') if value.strip() %}<span class="tag tag-muted">{{ value.strip() }}</span>{% endfor %}
+            {% for tag in tags %}<span class="tag tag-accent">{{ tag }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if game.description %}<p class="detail-description">{{ game.description }}</p>{% endif %}
+        <div class="detail-actions">
+            <a href="{{ url_for('edit_game', game_id=game.id) }}" class="btn btn-primary">Edit game</a>
+            <form method="POST" action="{{ url_for('delete_game', game_id=game.id) }}" onsubmit="return confirm('Remove this game and its sessions?')">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="detail-stat-ribbon">
+    <div><strong>{{ summary.session_count }}</strong><span>Sessions</span></div>
+    <div><strong>{{ summary.seconds|duration }}</strong><span>Play time</span></div>
+    <div><strong>{{ summary.last_session or '—' }}</strong><span>Last session</span></div>
+    <div><strong>{{ game.completion_date or '—' }}</strong><span>Completed</span></div>
+</section>
+
+<div class="detail-columns">
+    <div>
+        <section class="content-section">
+            <div class="section-heading"><h2>Play sessions</h2><a href="{{ url_for('sessions', q=game.title) }}" class="text-link">Open log →</a></div>
+            {% if sessions %}
+            <div class="session-feed">
+                {% for entry in sessions[:8] %}
+                <div class="session-feed-row session-feed-static">
+                    <span class="session-date">{{ entry.session_date }}</span>
+                    <span class="session-platform">{{ entry.platform_name or '—' }}</span>
+                    <span class="session-duration">{{ entry.duration_seconds|duration }}</span>
+                    {% if entry.progress_percent is not none %}<span class="session-progress">{{ '%.0f'|format(entry.progress_percent) }}%</span>{% endif %}
+                    <a href="{{ url_for('edit_session', session_id=entry.id) }}" class="row-action">Edit</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="muted">No sessions recorded for this game yet.</p>
+            {% endif %}
+        </section>
+
+        {% if game.notes %}
+        <section class="content-section">
+            <div class="section-heading"><h2>Personal notes</h2></div>
+            <div class="rich-text">{{ game.notes }}</div>
+        </section>
+        {% endif %}
+    </div>
+
+    <aside>
+        <section class="content-section quick-session-card">
+            <div class="section-heading"><h2>Log a session</h2></div>
+            <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form">
+                <input type="hidden" name="game_id" value="{{ game.id }}">
+                <div class="form-grid form-grid-2">
+                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" data-today required></div>
+                    <div class="form-field"><label for="duration_minutes">Minutes</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="60"></div>
+                </div>
+                <div class="form-grid form-grid-2">
+                    <div class="form-field"><label for="platform_id">Platform</label><select id="platform_id" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}">{{ platform.name }}</option>{% endfor %}</select></div>
+                    <div class="form-field"><label for="progress_percent">Progress %</label><input id="progress_percent" type="number" min="0" max="100" step="1" name="progress_percent"></div>
+                </div>
+                <div class="form-grid form-grid-2">
+                    <div class="form-field"><label for="session_type">Type</label><select id="session_type" name="session_type">{% for value in session_types %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+                    <div class="form-field"><label for="mode">Mode</label><select id="mode" name="mode">{% for value in mode_values %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+                </div>
+                <div class="form-field"><label for="session_notes">Notes</label><textarea id="session_notes" name="notes" rows="3"></textarea></div>
+                <button type="submit" class="btn btn-primary btn-wide">Save session</button>
+            </form>
+        </section>
+
+        {% if ratings %}
+        <section class="content-section">
+            <div class="section-heading"><h2>Rating breakdown</h2></div>
+            <div class="rating-bars">
+                {% for key, label in rating_dimensions %}
+                {% if ratings.get(key) is not none %}
+                <div class="rating-bar-row"><span>{{ label }}</span><div class="rating-track"><i style="width:{{ ratings[key] * 10 }}%"></i></div><strong>{{ '%.1f'|format(ratings[key]) }}</strong></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

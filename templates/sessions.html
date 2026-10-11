@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Sessions{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow" data-i18n="sessions.eyebrow">Time spent playing</p>
+        <h1 data-i18n="nav.sessions">Sessions</h1>
+    </div>
+</div>
+
+<section class="content-section quick-session-card">
+    <div class="section-heading"><h2 data-i18n="sessions.logTitle">Log a play session</h2><span class="section-hint">A date and duration are enough; everything else is optional.</span></div>
+    {% if games %}
+    <form method="POST" action="{{ url_for('new_session') }}" class="session-entry-form">
+        <div class="form-field"><label for="new-game">Game</label><select id="new-game" name="game_id" required><option value="">Choose a game...</option>{% for game in games %}<option value="{{ game.id }}">{{ game.title }}</option>{% endfor %}</select></div>
+        <div class="form-field"><label for="new-date">Date</label><input id="new-date" type="date" name="session_date" data-today required></div>
+        <div class="form-field"><label for="new-duration">Minutes</label><input id="new-duration" type="number" min="0" name="duration_minutes" value="60"></div>
+        <div class="form-field"><label for="new-platform">Platform</label><select id="new-platform" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}">{{ platform.name }}</option>{% endfor %}</select></div>
+        <div class="form-field"><label for="new-type">Type</label><select id="new-type" name="session_type">{% for value in session_types %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+        <div class="form-field"><label for="new-progress">Progress %</label><input id="new-progress" type="number" min="0" max="100" step="1" name="progress_percent"></div>
+        <div class="form-field form-field-span-2"><label for="new-notes">Notes</label><input id="new-notes" name="notes" placeholder="What did you play?"></div>
+        <button type="submit" class="btn btn-primary">Save session</button>
+    </form>
+    {% else %}
+    <div class="empty-state compact"><p>Add a game before logging a session.</p><a href="{{ url_for('new_game') }}" class="btn btn-primary">+ Add Game</a></div>
+    {% endif %}
+</section>
+
+<form method="GET" action="{{ url_for('sessions') }}" class="filter-panel">
+    <div class="search-wrap"><span>⌕</span><input type="search" name="q" value="{{ query }}" placeholder="Filter by game"></div>
+    <select name="platform" onchange="this.form.submit()"><option value="">All platforms</option>{% for platform in platforms %}<option value="{{ platform.id }}" {% if platform_id == platform.id %}selected{% endif %}>{{ platform.name }}</option>{% endfor %}</select>
+    <label class="date-filter">From <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label class="date-filter">To <input type="date" name="date_to" value="{{ date_to }}"></label>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    <a href="{{ url_for('sessions') }}" class="btn btn-ghost">Clear</a>
+</form>
+
+<section class="content-section">
+    <div class="section-heading"><h2>Session history</h2><span class="section-hint">{{ sessions|length }} entries</span></div>
+    {% if sessions %}
+    <div class="table-wrap">
+        <table class="data-table session-table">
+            <thead><tr><th>Date</th><th>Game</th><th>Platform</th><th>Type</th><th>Duration</th><th>Progress</th><th></th></tr></thead>
+            <tbody>
+            {% for entry in sessions %}
+            <tr>
+                <td>{{ entry.session_date }}</td>
+                <td><a href="{{ url_for('game_detail', game_id=entry.game_id) }}"><strong>{{ entry.title }}</strong></a>{% if entry.notes %}<span class="table-sub">{{ entry.notes }}</span>{% endif %}</td>
+                <td>{{ entry.platform_name or '—' }}</td>
+                <td><span class="type-label">{{ entry.session_type|replace('_', ' ')|title }}</span></td>
+                <td>{{ entry.duration_seconds|duration }}</td>
+                <td>{% if entry.progress_percent is not none %}{{ '%.0f'|format(entry.progress_percent) }}%{% else %}—{% endif %}</td>
+                <td class="table-actions"><a href="{{ url_for('edit_session', session_id=entry.id) }}" class="row-action">Edit</a><form method="POST" action="{{ url_for('delete_session', session_id=entry.id) }}" onsubmit="return confirm('Delete this session?')"><button class="row-action row-action-danger" type="submit">Delete</button></form></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state compact"><span class="empty-icon">⏱</span><p>No sessions match the current filters.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

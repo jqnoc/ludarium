@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../librarium"
+		},
+		{
+			"path": "../spectata"
+		}
+	],
+	"settings": {}
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ludarium - Select User</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        (function () {
+            var theme = localStorage.getItem('ludarium_theme') === 'dark' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }());
+    </script>
+</head>
+<body class="user-page">
+    <div class="user-shell">
+        <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="user-logo">
+        <h1>Ludarium</h1>
+        <p class="user-subtitle" data-i18n="users.subtitle">Your personal video game library</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+        {% if users %}
+        <section class="user-panel">
+            <h2 data-i18n="users.select">Select a user</h2>
+            <div class="user-list">
+                {% for user in users %}
+                <form method="POST" action="{{ url_for('user_switch') }}">
+                    <input type="hidden" name="username" value="{{ user.name }}">
+                    <button type="submit" class="user-choice">
+                        <span class="user-avatar">{{ user.name[:1]|upper }}</span>
+                        <span>{{ user.name }}</span>
+                        <span class="user-arrow">→</span>
+                    </button>
+                </form>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        <section class="user-panel">
+            <h2 data-i18n="users.create">Create a new user</h2>
+            <form method="POST" action="{{ url_for('user_create') }}" class="stack-form">
+                <label for="user-name" data-i18n="users.name">Name</label>
+                <input id="user-name" type="text" name="name" placeholder="Your name" required autofocus>
+                <button type="submit" class="btn btn-primary btn-wide" data-i18n="common.continue">Continue</button>
+            </form>
+        </section>
+        <p class="user-footer">Ludarium <span>v{{ config.get('APP_VERSION', '0.1.0') }}</span></p>
+    </div>
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

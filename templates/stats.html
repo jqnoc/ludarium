@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Stats{% endblock %}
+
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Patterns in your play</p><h1 data-i18n="nav.stats">Statistics</h1></div></div>
+<section class="stat-ribbon">
+    <div class="stat-card stat-card-accent"><span class="stat-icon">🎮</span><strong>{{ total_games }}</strong><span>Games</span></div>
+    <div class="stat-card"><span class="stat-icon">✓</span><strong>{{ completed_games }}</strong><span>Completed</span></div>
+    <div class="stat-card"><span class="stat-icon">◔</span><strong>{{ completion_rate }}%</strong><span>Completion rate</span></div>
+    <div class="stat-card"><span class="stat-icon">⏱</span><strong>{{ total_seconds|duration }}</strong><span>Total play time</span></div>
+    <div class="stat-card"><span class="stat-icon">★</span><strong>{{ average_rating or '—' }}</strong><span>Average rating</span></div>
+</section>
+
+<div class="chart-grid">
+    <section class="content-section chart-card">
+        <div class="section-heading"><h2>Play time by year</h2></div>
+        {% if sessions_by_year %}
+        <div class="bar-chart" data-chart='{{ sessions_by_year|tojson }}' data-label-key="year" data-value-key="hours" data-value-suffix="h"></div>
+        {% else %}<div class="empty-state compact"><p>Log sessions to see yearly trends.</p></div>{% endif %}
+    </section>
+    <section class="content-section chart-card">
+        <div class="section-heading"><h2>Hours by platform</h2></div>
+        {% if platform_hours %}
+        <div class="bar-chart" data-chart='{{ platform_hours|tojson }}' data-label-key="label" data-value-key="hours" data-value-suffix="h"></div>
+        {% else %}<div class="empty-state compact"><p>No platform data yet.</p></div>{% endif %}
+    </section>
+</div>
+
+<div class="chart-grid">
+    <section class="content-section chart-card">
+        <div class="section-heading"><h2>Hours by genre</h2></div>
+        {% if genre_data %}
+        <div class="bar-chart" data-chart='{{ genre_data|tojson }}' data-label-key="label" data-value-key="hours" data-value-suffix="h"></div>
+        {% else %}<div class="empty-state compact"><p>Add genres and sessions to see this breakdown.</p></div>{% endif %}
+    </section>
+    <section class="content-section chart-card">
+        <div class="section-heading"><h2>Library status</h2></div>
+        {% if status_counts %}
+        <div class="bar-chart" data-chart='{{ status_counts|tojson }}' data-label-key="label" data-value-key="count" data-value-suffix=""></div>
+        {% else %}<div class="empty-state compact"><p>Add games to see status distribution.</p></div>{% endif %}
+    </section>
+</div>
+
+<section class="content-section">
+    <div class="section-heading"><h2>Most played games</h2><a href="{{ url_for('library') }}" class="text-link">Open library →</a></div>
+    {% if top_games %}
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Game</th><th>Sessions</th><th>Play time</th></tr></thead><tbody>
+    {% for game in top_games %}
+    <tr><td><a href="{{ url_for('game_detail', game_id=game.id) }}"><strong>{{ game.title }}</strong></a></td><td>{{ game.session_count }}</td><td>{{ game.seconds|duration }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="empty-state compact"><p>No play history yet.</p></div>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.bar-chart').forEach(function (chart) {
+    var items = JSON.parse(chart.dataset.chart || '[]');
+    var valueKey = chart.dataset.valueKey;
+    var labelKey = chart.dataset.labelKey;
+    var suffix = chart.dataset.valueSuffix || '';
+    var max = Math.max.apply(null, items.map(function (item) { return Number(item[valueKey]) || 0; }).concat([1]));
+    items.forEach(function (item) {
+        var value = Number(item[valueKey]) || 0;
+        var row = document.createElement('div');
+        row.className = 'bar-row';
+        row.innerHTML = '<span class="bar-label"></span><div class="bar-track"><i></i></div><strong class="bar-value"></strong>';
+        row.querySelector('.bar-label').textContent = item[labelKey];
+        row.querySelector('.bar-value').textContent = value + suffix;
+        row.querySelector('i').style.width = Math.max(2, value / max * 100) + '%';
+        chart.appendChild(row);
+    });
+});
+</script>
+{% endblock %}

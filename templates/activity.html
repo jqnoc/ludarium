@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Activity{% endblock %}
+
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Your rhythm of play</p><h1 data-i18n="nav.activity">Activity</h1></div></div>
+<section class="stat-ribbon">
+    <div class="stat-card stat-card-accent"><span class="stat-icon">◷</span><strong>{{ total_sessions }}</strong><span>Sessions</span></div>
+    <div class="stat-card"><span class="stat-icon">▦</span><strong>{{ active_days }}</strong><span>Active days</span></div>
+    <div class="stat-card"><span class="stat-icon">🔥</span><strong>{{ current_streak }}</strong><span>Current streak</span></div>
+    <div class="stat-card"><span class="stat-icon">🏆</span><strong>{{ longest_streak }}</strong><span>Longest streak</span></div>
+</section>
+
+<section class="content-section">
+    <div class="section-heading"><h2>Play heatmap</h2><span class="section-hint">The last 52 weeks</span></div>
+    <div class="heatmap" id="activityHeatmap"></div>
+    <div class="heatmap-legend"><span>Less</span><i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i><span>More</span></div>
+</section>
+
+<section class="content-section">
+    <div class="section-heading"><h2>Recent activity</h2><span class="section-hint">Latest 150 sessions</span></div>
+    {% if rows %}
+    <div class="activity-feed">
+        {% for entry in rows %}
+        <a href="{{ url_for('game_detail', game_id=entry.game_id) }}" class="activity-row">
+            <span class="activity-date">{{ entry.session_date }}</span>
+            <span class="activity-icon">🎮</span>
+            <span class="activity-game"><strong>{{ entry.title }}</strong>{% if entry.notes %}<small>{{ entry.notes }}</small>{% endif %}</span>
+            <span class="activity-platform">{{ entry.platform_name or '—' }}</span>
+            <span class="activity-duration">{{ entry.duration_seconds|duration }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state large"><span class="empty-icon">📈</span><h2>No activity yet</h2><p>Log a play session to start building your history.</p><a href="{{ url_for('sessions') }}" class="btn btn-primary">Open sessions</a></div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var daily = {{ daily|tojson }};
+    var heatmap = document.getElementById('activityHeatmap');
+    if (!heatmap) return;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var start = new Date(today);
+    start.setDate(start.getDate() - 364);
+    var values = Object.keys(daily).map(function (key) { return daily[key].sessions; });
+    var max = Math.max.apply(null, values.concat([1]));
+    for (var index = 0; index < 365; index += 1) {
+        var current = new Date(start);
+        current.setDate(start.getDate() + index);
+        var key = current.toISOString().slice(0, 10);
+        var value = daily[key] ? daily[key].sessions : 0;
+        var cell = document.createElement('span');
+        cell.className = 'heat-cell heat-' + (value === 0 ? 0 : Math.min(4, Math.ceil(value / max * 4)));
+        cell.title = key + ': ' + value + ' session' + (value === 1 ? '' : 's');
+        heatmap.appendChild(cell);
+    }
+}());
+</script>
+{% endblock %}

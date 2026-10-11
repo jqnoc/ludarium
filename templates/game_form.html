@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% set is_edit = game.get('id') %}
+{% block title %}Ludarium - {{ 'Edit Game' if is_edit else 'Add Game' }}{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">{{ 'Game metadata' if is_edit else 'Build your collection' }}</p>
+        <h1>{{ 'Edit Game' if is_edit else 'Add Game' }}</h1>
+    </div>
+    <a href="{{ url_for('game_detail', game_id=game.get('id')) if is_edit else url_for('library') }}" class="btn btn-ghost">← Cancel</a>
+</div>
+
+{% if errors %}
+<div class="form-errors">
+    {% for error in errors %}<p>{{ error }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('edit_game', game_id=game.get('id')) if is_edit else url_for('new_game') }}" class="editor-form">
+    <section class="form-section">
+        <div class="section-heading"><h2>Identity</h2><span class="section-hint">The core record shown throughout Ludarium</span></div>
+        <div class="form-grid form-grid-3">
+            <div class="form-field form-field-span-2">
+                <label for="title">Title <span class="required">*</span></label>
+                <input id="title" name="title" required value="{{ game.get('title', '') }}" autofocus>
+            </div>
+            <div class="form-field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    {% for value, label in statuses.items() %}
+                    <option value="{{ value }}" {% if game.get('status', 'backlog') == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="original_title">Original / alternate title</label>
+                <input id="original_title" name="original_title" value="{{ game.get('original_title', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="sort_title">Sort title</label>
+                <input id="sort_title" name="sort_title" value="{{ game.get('sort_title', '') }}" placeholder="Defaults to title">
+            </div>
+            <div class="form-field">
+                <label for="game_type">Game type</label>
+                <select id="game_type" name="game_type">
+                    {% for value in game_types %}
+                    <option value="{{ value }}" {% if game.get('game_type', 'base_game') == value %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="section-heading"><h2>Classification and release</h2></div>
+        <div class="form-grid form-grid-3">
+            <div class="form-field">
+                <label for="release_date">Release date</label>
+                <input id="release_date" type="date" name="release_date" value="{{ game.get('release_date', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="release_year">Release year</label>
+                <input id="release_year" type="number" min="1900" max="2200" name="release_year" value="{{ game.get('release_year', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="content_rating">Content rating</label>
+                <input id="content_rating" name="content_rating" value="{{ game.get('content_rating', '') }}" placeholder="PEGI 16, ESRB T...">
+            </div>
+            <div class="form-field form-field-span-2">
+                <label for="platforms">Platforms / systems</label>
+                <input id="platforms" name="platforms" value="{{ game.get('platforms', '') }}" list="platform-list" placeholder="PC; Nintendo Switch; PlayStation 5">
+                <datalist id="platform-list">{% for platform in platform_names %}<option value="{{ platform }}">{% endfor %}</datalist>
+            </div>
+            <div class="form-field">
+                <label for="modes">Modes</label>
+                <input id="modes" name="modes" value="{{ game.get('modes', '') }}" placeholder="Single-player; Online">
+            </div>
+            <div class="form-field">
+                <label for="genres">Genres</label>
+                <input id="genres" name="genres" value="{{ game.get('genres', '') }}" placeholder="RPG; Strategy">
+            </div>
+            <div class="form-field">
+                <label for="subgenres">Subgenres</label>
+                <input id="subgenres" name="subgenres" value="{{ game.get('subgenres', '') }}" placeholder="Turn-based">
+            </div>
+            <div class="form-field">
+                <label for="themes">Themes</label>
+                <input id="themes" name="themes" value="{{ game.get('themes', '') }}" placeholder="Sci-fi; Found family">
+            </div>
+            <div class="form-field">
+                <label for="tags">Tags</label>
+                <input id="tags" name="tags" value="{{ game.get('tags', '') }}" placeholder="Short; Comfort game">
+            </div>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="section-heading"><h2>Credits and edition</h2></div>
+        <div class="form-grid form-grid-3">
+            <div class="form-field">
+                <label for="developers">Developer(s)</label>
+                <input id="developers" name="developers" value="{{ game.get('developers', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="publishers">Publisher(s)</label>
+                <input id="publishers" name="publishers" value="{{ game.get('publishers', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="series">Series / franchise</label>
+                <input id="series" name="series" value="{{ game.get('series', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="series_position">Series position</label>
+                <input id="series_position" name="series_position" value="{{ game.get('series_position', '') }}" placeholder="1, 2.5, etc.">
+            </div>
+            <div class="form-field">
+                <label for="edition">Edition / version</label>
+                <input id="edition" name="edition" value="{{ game.get('edition', '') }}" placeholder="Director's Cut">
+            </div>
+            <div class="form-field">
+                <label for="region">Region</label>
+                <input id="region" name="region" value="{{ game.get('region', '') }}" placeholder="EU, US, Global">
+            </div>
+            <div class="form-field">
+                <label for="ownership">Ownership / access</label>
+                <select id="ownership" name="ownership">
+                    {% for value in ownership_values %}
+                    <option value="{{ value }}" {% if game.get('ownership', 'not_owned') == value %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="source">Source / store</label>
+                <input id="source" name="source" value="{{ game.get('source', '') }}" placeholder="Steam, cartridge, Game Pass...">
+            </div>
+            <div class="form-field">
+                <label for="estimated_hours">Estimated play time (hours)</label>
+                <input id="estimated_hours" type="number" min="0" step="0.5" name="estimated_hours" value="{{ game.get('estimated_hours', '') }}">
+            </div>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="section-heading"><h2>Personal tracking</h2></div>
+        <div class="form-grid form-grid-3">
+            <div class="form-field">
+                <label for="start_date">Started</label>
+                <input id="start_date" type="date" name="start_date" value="{{ game.get('start_date', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="completion_date">Completed</label>
+                <input id="completion_date" type="date" name="completion_date" value="{{ game.get('completion_date', '') }}">
+            </div>
+            <div class="form-field">
+                <label for="rating">Overall rating (0-10)</label>
+                <input id="rating" type="number" min="0" max="10" step="0.1" name="rating" value="{{ game.get('rating', '') }}">
+            </div>
+            <div class="form-field form-field-span-3">
+                <label for="description">Description / synopsis</label>
+                <textarea id="description" name="description" rows="4">{{ game.get('description', '') }}</textarea>
+            </div>
+            <div class="form-field form-field-span-3">
+                <label for="notes">Personal notes</label>
+                <textarea id="notes" name="notes" rows="4">{{ game.get('notes', '') }}</textarea>
+            </div>
+            <div class="form-field form-field-span-3">
+                <label for="cover">Cover image</label>
+                <input id="cover" type="file" name="cover" accept="image/*">
+                <span class="form-hint">Full-size image and a thumbnail are kept in the local database.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-section">
+        <div class="section-heading"><h2>Rating breakdown</h2><span class="section-hint">Optional dimensions, each scored from 0 to 10</span></div>
+        <div class="rating-input-grid">
+            {% for key, label in rating_dimensions %}
+            <div class="form-field">
+                <label for="rating_{{ key }}">{{ label }}</label>
+                <input id="rating_{{ key }}" type="number" min="0" max="10" step="0.1" name="rating_{{ key }}" value="{{ ratings.get(key, '') }}">
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="form-actions">
+        <a href="{{ url_for('game_detail', game_id=game.get('id')) if is_edit else url_for('library') }}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">{{ 'Save changes' if is_edit else 'Add game' }}</button>
+    </div>
+</form>
+{% endblock %}

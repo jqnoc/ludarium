@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ludarium{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <script>
+        (function () {
+            var theme = localStorage.getItem('ludarium_theme') === 'dark' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }());
+    </script>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+    <div class="header-inner">
+        <div class="brand-cluster">
+            <a href="{{ url_for('dashboard') }}" class="site-brand">
+                <img src="{{ url_for('static', filename='logo.svg') }}" alt="" class="site-logo">
+                <span>Ludarium</span>
+            </a>
+            <form method="POST" action="{{ url_for('switch_library') }}" class="library-picker">
+                <label for="header-library" class="sr-only">Library</label>
+                <select id="header-library" name="library_id" onchange="this.form.submit()" title="Active library">
+                    {% for library in all_libraries %}
+                    <option value="{{ library.id }}" {% if current_library and library.id == current_library.id %}selected{% endif %}>{{ library.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <button type="button" class="icon-button header-tool" onclick="openModal('libraryModal')" title="Manage libraries">⚙</button>
+            {% if current_user %}
+            <span class="user-badge" title="{{ current_user }}">{{ current_user }}</span>
+            {% endif %}
+        </div>
+        <nav class="header-nav">
+            <a href="{{ url_for('dashboard') }}" data-i18n="nav.dashboard">Dashboard</a>
+            <a href="{{ url_for('library') }}" data-i18n="nav.library">Library</a>
+            <a href="{{ url_for('sessions') }}" data-i18n="nav.sessions">Sessions</a>
+            <a href="{{ url_for('stats') }}" data-i18n="nav.stats">Stats</a>
+            <a href="{{ url_for('activity') }}" data-i18n="nav.activity">Activity</a>
+            <a href="{{ url_for('index') }}" data-i18n="nav.index">Index</a>
+            <a href="{{ url_for('new_game') }}" class="nav-action" data-i18n="nav.addGame">+ Game</a>
+            <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode" aria-pressed="false">☾</button>
+            <span class="lang-toggle">
+                <button type="button" class="lang-btn" data-lang="en">EN</button>
+                <span>|</span>
+                <button type="button" class="lang-btn" data-lang="es">ES</button>
+            </span>
+            <button type="button" class="window-button" onclick="ludariumMinimize()" title="Minimize">─</button>
+            <button type="button" class="window-button" id="maximizeButton" onclick="ludariumToggleMaximize()" title="Maximize">□</button>
+            <button type="button" class="window-button close-button" onclick="ludariumQuit()" title="Close">✕</button>
+        </nav>
+    </div>
+</header>
+
+<main class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+    <span data-i18n="footer.copy">Ludarium</span> &copy; {{ now.year }}
+    <span class="footer-version">v{{ app_version }}</span>
+</footer>
+
+<div id="shutdownOverlay" class="shutdown-overlay" aria-hidden="true">
+    <div class="shutdown-card">
+        <div class="spinner"></div>
+        <p data-i18n="backup.shuttingDown">Backing up and closing...</p>
+    </div>
+</div>
+
+<div id="libraryModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'libraryModal')">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2 data-i18n="library.manageTitle">Manage Libraries</h2>
+            <button type="button" class="modal-close" onclick="closeModal('libraryModal')">×</button>
+        </div>
+        <div class="modal-section">
+            <h3 data-i18n="library.createNew">Create New Library</h3>
+            <form method="POST" action="{{ url_for('create_library') }}" class="inline-form">
+                <input type="text" name="name" placeholder="Library name" required>
+                <button type="submit" class="btn btn-primary" data-i18n="common.create">Create</button>
+            </form>
+        </div>
+        <div class="modal-section">
+            <h3 data-i18n="library.existing">Existing Libraries</h3>
+            {% for library in all_libraries %}
+            <div class="library-row">
+                <form method="POST" action="{{ url_for('rename_library', library_id=library.id) }}" class="inline-form">
+                    <input type="text" name="name" value="{{ library.name }}" required aria-label="Library name">
+                    <button type="submit" class="btn btn-secondary btn-sm" data-i18n="common.rename">Rename</button>
+                </form>
+                <form method="POST" action="{{ url_for('delete_library', library_id=library.id) }}" onsubmit="return confirm('Delete this library and its games?')">
+                    <button type="submit" class="btn btn-danger btn-sm" data-i18n="common.delete">Delete</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="modal-section">
+            <h3 data-i18n="backup.title">Database Backup</h3>
+            <p class="muted small">{{ backup_location }}</p>
+            <form method="POST" action="{{ url_for('create_backup') }}">
+                <button type="submit" class="btn btn-secondary" data-i18n="backup.create">Create Backup Now</button>
+            </form>
+        </div>
+        <div class="modal-section modal-section-last">
+            <a href="{{ url_for('user_select') }}" class="btn btn-ghost" data-i18n="users.switch">Switch user</a>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

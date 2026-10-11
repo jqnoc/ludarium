@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Edit Session{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div><p class="eyebrow">Session metadata</p><h1>Edit play session</h1></div>
+    <a href="{{ url_for('sessions') }}" class="btn btn-ghost">← Back to sessions</a>
+</div>
+<form method="POST" class="editor-form narrow-form">
+    <div class="form-section">
+        <div class="form-grid form-grid-2">
+            <div class="form-field"><label for="game_id">Game</label><select id="game_id" name="game_id">{% for game in games %}<option value="{{ game.id }}" {% if game.id == session.game_id %}selected{% endif %}>{{ game.title }}</option>{% endfor %}</select></div>
+            <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ session.session_date }}" required></div>
+            <div class="form-field"><label for="duration_minutes">Duration (minutes)</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="{{ (session.duration_seconds / 60)|round(1) }}"></div>
+            <div class="form-field"><label for="platform_id">Platform</label><select id="platform_id" name="platform_id"><option value="">—</option>{% for platform in platforms %}<option value="{{ platform.id }}" {% if platform.id == session.platform_id %}selected{% endif %}>{{ platform.name }}</option>{% endfor %}</select></div>
+            <div class="form-field"><label for="session_type">Type</label><select id="session_type" name="session_type">{% for value in session_types %}<option value="{{ value }}" {% if value == session.session_type %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+            <div class="form-field"><label for="mode">Mode</label><select id="mode" name="mode">{% for value in mode_values %}<option value="{{ value }}" {% if value == session.mode %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+            <div class="form-field"><label for="start_time">Start time</label><input id="start_time" type="time" name="start_time" value="{{ session.start_time }}"></div>
+            <div class="form-field"><label for="end_time">End time</label><input id="end_time" type="time" name="end_time" value="{{ session.end_time }}"></div>
+            <div class="form-field"><label for="progress_before">Progress before (%)</label><input id="progress_before" type="number" min="0" max="100" step="1" name="progress_before" value="{{ session.progress_before or '' }}"></div>
+            <div class="form-field"><label for="progress_after">Progress after (%)</label><input id="progress_after" type="number" min="0" max="100" step="1" name="progress_after" value="{{ session.progress_after or session.progress_percent or '' }}"></div>
+            <div class="form-field"><label for="chapter">Chapter / level / quest</label><input id="chapter" name="chapter" value="{{ session.chapter }}"></div>
+            <div class="form-field"><label for="objective">Objective</label><input id="objective" name="objective" value="{{ session.objective }}"></div>
+            <div class="form-field"><label for="participants">Participants</label><input id="participants" name="participants" value="{{ session.participants }}"></div>
+            <div class="form-field"><label for="location">Location</label><input id="location" name="location" value="{{ session.location }}"></div>
+            <div class="form-field"><label for="achievements">Achievements / unlocks</label><input id="achievements" name="achievements" value="{{ session.achievements }}"></div>
+            <div class="form-field"><label for="mood">Mood / energy</label><input id="mood" name="mood" value="{{ session.mood }}"></div>
+            <div class="form-field form-field-span-2"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="5">{{ session.notes }}</textarea></div>
+        </div>
+    </div>
+    <div class="form-actions"><a href="{{ url_for('sessions') }}" class="btn btn-ghost">Cancel</a><button type="submit" class="btn btn-primary btn-lg">Save changes</button></div>
+</form>
+{% endblock %}

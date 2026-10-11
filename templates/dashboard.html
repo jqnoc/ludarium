@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow" data-i18n="dash.eyebrow">Your play history</p>
+        <h1 data-i18n="dash.title">Dashboard</h1>
+    </div>
+    <a href="{{ url_for('new_game') }}" class="btn btn-primary" data-i18n="nav.addGame">+ Add Game</a>
+</div>
+
+<section class="stat-ribbon">
+    <div class="stat-card stat-card-accent">
+        <span class="stat-icon">🎮</span>
+        <strong>{{ total_games }}</strong>
+        <span data-i18n="dash.totalGames">Games</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon">▶</span>
+        <strong>{{ status_counts.get('playing', 0) + status_counts.get('replaying', 0) }}</strong>
+        <span data-i18n="dash.playing">Playing</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon">✓</span>
+        <strong>{{ status_counts.get('completed', 0) }}</strong>
+        <span data-i18n="dash.completed">Completed</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon">⏱</span>
+        <strong>{{ totals.seconds|duration }}</strong>
+        <span data-i18n="dash.playTime">Play time</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon">▣</span>
+        <strong>{{ status_counts.get('backlog', 0) }}</strong>
+        <span data-i18n="dash.backlog">Backlog</span>
+    </div>
+</section>
+
+{% if playing %}
+<section class="content-section">
+    <div class="section-heading">
+        <h2 data-i18n="dash.currentlyPlaying">Currently Playing</h2>
+        <a href="{{ url_for('library', status='playing') }}" class="text-link" data-i18n="common.viewAll">View all →</a>
+    </div>
+    <div class="game-strip">
+        {% for game in playing %}
+        <a class="game-strip-card" href="{{ url_for('game_detail', game_id=game.id) }}">
+            <div class="game-cover game-cover-small">
+                {% if game.media_id %}
+                <img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}">
+                {% else %}
+                <span>🎮</span>
+                {% endif %}
+            </div>
+            <div class="game-strip-info">
+                <strong>{{ game.title }}</strong>
+                <span class="muted">{{ game.played_seconds|duration }} played</span>
+                {% if game.last_session %}<span class="muted small">Last session {{ game.last_session }}</span>{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<div class="dashboard-columns">
+    <section class="content-section">
+        <div class="section-heading">
+            <h2 data-i18n="dash.recentSessions">Recent Sessions</h2>
+            <a href="{{ url_for('sessions') }}" class="text-link" data-i18n="common.viewAll">View all →</a>
+        </div>
+        {% if recent_sessions %}
+        <div class="session-feed">
+            {% for session in recent_sessions %}
+            <a href="{{ url_for('game_detail', game_id=session.game_id) }}" class="session-feed-row">
+                <span class="session-date">{{ session.session_date }}</span>
+                <span class="session-game">{{ session.title }}</span>
+                <span class="session-platform">{{ session.platform_name or '—' }}</span>
+                <span class="session-duration">{{ session.duration_seconds|duration }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+            <span class="empty-icon">⏱</span>
+            <p data-i18n="dash.noSessions">No play sessions yet. Log your first one from the Sessions tab.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="content-section">
+        <div class="section-heading">
+            <h2 data-i18n="dash.recentlyAdded">Recently Added</h2>
+            <a href="{{ url_for('library') }}" class="text-link" data-i18n="common.viewAll">View all →</a>
+        </div>
+        {% if latest_games %}
+        <div class="mini-game-list">
+            {% for game in latest_games %}
+            <a href="{{ url_for('game_detail', game_id=game.id) }}" class="mini-game-row">
+                <div class="game-cover game-cover-tiny">
+                    {% if game.media_id %}<img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}">{% else %}<span>🎮</span>{% endif %}
+                </div>
+                <div>
+                    <strong>{{ game.title }}</strong>
+                    <span class="muted">{{ status_labels.get(game.status, game.status) }}</span>
+                </div>
+                <span class="status-dot status-{{ game.status }}"></span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+            <span class="empty-icon">🎮</span>
+            <p data-i18n="dash.noGames">Your library is empty.</p>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('new_game') }}" data-i18n="nav.addGame">+ Add Game</a>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

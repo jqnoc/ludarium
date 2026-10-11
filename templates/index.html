@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Index{% endblock %}
+
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Browse your taxonomy</p><h1 data-i18n="nav.index">Index</h1></div></div>
+<section class="content-section">
+    <div class="section-heading"><h2>Platforms</h2><span class="section-hint">Systems represented in this library</span></div>
+    {% if platform_counts %}
+    <div class="index-cloud">
+        {% for item in platform_counts %}<a href="{{ url_for('library', platform=item.id) }}" class="index-pill index-pill-large">{{ item.name }} <small>{{ item.count }}</small></a>{% endfor %}
+    </div>
+    {% else %}<p class="muted">No platforms have been added yet.</p>{% endif %}
+</section>
+<div class="index-grid">
+    {% for key, title in [('genres', 'Genres'), ('developers', 'Developers'), ('publishers', 'Publishers'), ('series', 'Series'), ('tags', 'Tags')] %}
+    <section class="content-section index-section">
+        <div class="section-heading"><h2>{{ title }}</h2></div>
+        {% if groups[key] %}
+        <ul class="index-list">{% for item in groups[key] %}<li><span>{{ item.name }}</span><strong>{{ item.count }}</strong></li>{% endfor %}</ul>
+        {% else %}<p class="muted">No {{ title|lower }} yet.</p>{% endif %}
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}
