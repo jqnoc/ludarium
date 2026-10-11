@@ -181,9 +181,12 @@ integer keys unless the schema says otherwise.
 ### 3.4 Users and libraries
 
 The active user is validated from the `ludarium_user` cookie against
-`users.json`; the active library is selected through the
-`ludarium_library` cookie. Every game, session, statistic, index count, and
-detail query must respect the active library where applicable.
+`users.json`; the last valid `last_user` entry is restored when the cookie is
+missing or expired. The selected user cookie is persistent, while the
+application header provides the explicit “Switch user” workflow. The active
+library is selected through the `ludarium_library` cookie. Every game, session,
+statistic, index count, and detail query must respect the active library where
+applicable.
 
 Do not add one-off seed data or import logic to `app.py`. For a user-requested
 data import, use a temporary standalone script against the selected SQLite

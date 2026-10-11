@@ -47,6 +47,7 @@ BACKUP_DIR = DATA_DIR / "backups"
 USERS_FILE = DATA_DIR / "users.json"
 DB_PATH = DATA_DIR / "ludarium.db"
 APP_VERSION = "0.1.0"
+USER_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 STATUS_LABELS = {
     "wishlist": "Wishlist",
@@ -155,6 +156,9 @@ def _get_valid_current_user(users_data: dict[str, Any] | None = None) -> str:
     users_data = users_data or _load_users()
     username = request.cookies.get("ludarium_user", "").strip()
     user = _find_user(username, users_data)
+    if user is None:
+        last_user = str(users_data.get("last_user", "")).strip()
+        user = _find_user(last_user, users_data)
     return str(user["name"]) if user else ""
 
 
@@ -164,6 +168,7 @@ def _set_user_response(response: Response, username: str) -> Response:
         username,
         httponly=True,
         samesite="Lax",
+        max_age=USER_COOKIE_MAX_AGE,
     )
     return response
 
@@ -797,10 +802,14 @@ def _format_game_for_template(db: sqlite3.Connection, row: dict[str, Any]) -> di
 
 @app.before_request
 def require_user() -> Response | None:
-    if request.endpoint in {"static", "user_select", "user_create"}:
+    if request.endpoint in {"static", "user_select", "user_create", "user_switch"}:
         return None
-    if not _get_valid_current_user():
+    username = _get_valid_current_user()
+    if not username:
         return redirect(url_for("user_select"))
+    if request.cookies.get("ludarium_user", "").strip() != username:
+        response = make_response(redirect(request.url))
+        return _set_user_response(response, username)
     return None
 
 

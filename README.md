@@ -39,6 +39,8 @@ Development data is stored in `data/`; set `LUDARIUM_DATA_DIR` to use another
 directory. Packaged builds use the same SQLite schema and per-user storage
 model as the development app. Packaged builds store data under
 `%APPDATA%\Ludarium\data` unless `LUDARIUM_DATA_DIR` is set.
+The last selected user is remembered between launches; use “Switch user” from
+the application header when you need to change profiles.
 
 ## Troubleshooting
 
