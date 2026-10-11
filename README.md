@@ -30,6 +30,10 @@ Run the desktop app with:
 npm start
 ```
 
+On Windows, you can also double-click `run-ludarium.bat` or
+`Ludarium.vbs`. The VBS launcher starts the Electron app without opening a
+console window.
+
 The backend can also be run directly with `.venv\Scripts\python.exe app.py`.
 Development data is stored in `data/`; set `LUDARIUM_DATA_DIR` to use another
 directory. Packaged builds use the same SQLite schema and per-user storage

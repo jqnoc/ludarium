@@ -31,7 +31,7 @@ verification.
 | Python dependencies | Flask, Pillow, PyInstaller |
 | Preferred Flask port | `48742`, with a dynamic fallback |
 | Development start | `npm start` |
-| Windows launcher | `run-ludarium.bat` |
+| Windows launchers | `run-ludarium.bat` or `Ludarium.vbs` |
 | Portable build | `npm.cmd run build` |
 
 Use the repository virtual environment rather than assuming that the system
@@ -327,6 +327,7 @@ code.
 | `requirements.txt` | Python runtime/build dependencies |
 | `scripts/build_backend.py` | PyInstaller backend build helper |
 | `run-ludarium.bat` | Windows development launcher |
+| `Ludarium.vbs` | Silent Windows launcher using `npm start` |
 | `static/style.css` | Layout, components, themes, and responsive design |
 | `static/app.js` | Modals, theme, window controls, date defaults, shutdown |
 | `static/i18n.js` | English/Spanish translation runtime |
