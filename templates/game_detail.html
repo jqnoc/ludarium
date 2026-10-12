@@ -103,6 +103,15 @@
                 </div>
                 <div class="form-field"><label for="session_notes">Notes</label><textarea id="session_notes" name="notes" rows="3"></textarea></div>
                 <button type="submit" class="btn btn-primary btn-wide">Save session</button>
+                <details class="session-range-options">
+                    <summary data-i18n="sessions.rangeTitle">Add a date range</summary>
+                    <p class="form-hint session-range-hint" data-i18n="sessions.rangeHint">Distribute total play time evenly across each day from the start date through the end date. The other session details apply to each day.</p>
+                    <div class="session-range-grid">
+                        <div class="form-field"><label for="range_start_date" data-i18n="sessions.rangeFrom">From</label><input id="range_start_date" type="date" name="range_start_date"></div>
+                        <div class="form-field"><label for="range_end_date" data-i18n="sessions.rangeTo">To</label><input id="range_end_date" type="date" name="range_end_date"></div>
+                        <div class="form-field"><label for="range_duration_minutes" data-i18n="sessions.rangeTotal">Total minutes</label><input id="range_duration_minutes" type="number" min="1" step="1" name="range_duration_minutes"></div>
+                    </div>
+                </details>
             </form>
         </section>
 

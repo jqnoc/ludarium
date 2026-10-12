@@ -720,14 +720,12 @@ def _game_in_library(db: sqlite3.Connection, game_id: str, library_id: int) -> s
     ).fetchone()
 
 
-def _parse_session_form(
+def _parse_session_values(
     db: sqlite3.Connection,
     form: Any,
+    session_date: str,
+    duration_minutes: float | None,
 ) -> tuple[dict[str, Any], str | None]:
-    session_date = _normalise_date(form.get("session_date"))
-    if not session_date:
-        return {}, "A valid session date is required."
-    duration_minutes = _safe_float(form.get("duration_minutes"), 0, 100000)
     duration_seconds = round((duration_minutes or 0) * 60)
     session_type = _clean(form.get("session_type")) or "regular"
     if session_type not in SESSION_TYPE_VALUES:
@@ -764,6 +762,59 @@ def _parse_session_form(
         "mood": _clean(form.get("mood")),
         "notes": _clean(form.get("notes")),
     }, None
+
+
+def _parse_session_form(
+    db: sqlite3.Connection,
+    form: Any,
+) -> tuple[dict[str, Any], str | None]:
+    session_date = _normalise_date(form.get("session_date"))
+    if not session_date:
+        return {}, "A valid session date is required."
+    duration_minutes = _safe_float(form.get("duration_minutes"), 0, 100000)
+    return _parse_session_values(db, form, session_date, duration_minutes)
+
+
+def _parse_session_entries(
+    db: sqlite3.Connection,
+    form: Any,
+) -> tuple[list[dict[str, Any]], str | None]:
+    range_fields = (
+        form.get("range_start_date"),
+        form.get("range_end_date"),
+        form.get("range_duration_minutes"),
+    )
+    if not any(_clean(value) for value in range_fields):
+        values, error = _parse_session_form(db, form)
+        return ([values] if not error else []), error
+
+    start_date = _normalise_date(form.get("range_start_date"))
+    end_date = _normalise_date(form.get("range_end_date"))
+    if not start_date or not end_date:
+        return [], "Enter a valid start and end date for the playing range."
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+    if end < start:
+        return [], "The playing range end date must be on or after its start date."
+
+    total_minutes = _safe_float(form.get("range_duration_minutes"), 0, 100000)
+    if total_minutes is None or total_minutes <= 0:
+        return [], "Enter a total play time greater than 0 minutes."
+
+    template, error = _parse_session_values(db, form, start_date, 0)
+    if error:
+        return [], error
+
+    day_count = (end - start).days + 1
+    total_seconds = round(total_minutes * 60)
+    daily_seconds, remainder = divmod(total_seconds, day_count)
+    entries: list[dict[str, Any]] = []
+    for offset in range(day_count):
+        values = dict(template)
+        values["session_date"] = (start + timedelta(days=offset)).isoformat()
+        values["duration_seconds"] = daily_seconds + (1 if offset < remainder else 0)
+        entries.append(values)
+    return entries, None
 
 
 def _list_games(db: sqlite3.Connection, library_id: int) -> list[dict[str, Any]]:
@@ -1443,19 +1494,28 @@ def new_session() -> Response:
     if game is None:
         flash("Choose a valid game for the session.", "error")
         return redirect(request.referrer or url_for("sessions"))
-    values, error = _parse_session_form(db, request.form)
+    session_values, error = _parse_session_entries(db, request.form)
     if error:
         flash(error, "error")
         return redirect(request.referrer or url_for("sessions"))
-    _create_session(db, game_id, values)
-    if not game["start_date"]:
+    for values in session_values:
+        _create_session(db, game_id, values)
+    if not game["start_date"] and session_values:
         db.execute(
             "UPDATE games SET start_date = ? WHERE id = ?",
-            (values["session_date"], game_id),
+            (session_values[0]["session_date"], game_id),
         )
-    if values["session_type"] == "completion" or (
-        values["progress_percent"] is not None and values["progress_percent"] >= 100
-    ):
+    completed_dates = [
+        values["session_date"]
+        for values in session_values
+        if values["session_type"] == "completion"
+        or (
+            values["progress_percent"] is not None
+            and values["progress_percent"] >= 100
+        )
+    ]
+    if completed_dates:
+        completion_date = max(completed_dates)
         db.execute(
             """
             UPDATE games
@@ -1463,11 +1523,14 @@ def new_session() -> Response:
                 completion_date = COALESCE(NULLIF(completion_date, ''), ?)
             WHERE id = ?
             """,
-            (values["session_date"], game_id),
+            (completion_date, game_id),
         )
-        _record_status(db, game_id, "completed", values["session_date"])
+        _record_status(db, game_id, "completed", completion_date)
     db.commit()
-    flash("Play session recorded.", "success")
+    if len(session_values) == 1:
+        flash("Play session recorded.", "success")
+    else:
+        flash(f"Play sessions recorded across {len(session_values)} days.", "success")
     return redirect(request.referrer or url_for("sessions"))
 
 
