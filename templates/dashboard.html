@@ -51,7 +51,7 @@
                 {% if game.media_id %}
                 <img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}">
                 {% else %}
-                <span>🎮</span>
+                <div class="cover-placeholder cover-placeholder-small"><span>🎮</span></div>
                 {% endif %}
             </div>
             <div class="game-strip-info">
@@ -100,7 +100,7 @@
             {% for game in latest_games %}
             <a href="{{ url_for('game_detail', game_id=game.id) }}" class="mini-game-row">
                 <div class="game-cover game-cover-tiny">
-                    {% if game.media_id %}<img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}">{% else %}<span>🎮</span>{% endif %}
+                    {% if game.media_id %}<img src="{{ url_for('game_cover_thumb', game_id=game.id) }}" alt="{{ game.title }}">{% else %}<div class="cover-placeholder cover-placeholder-tiny"><span>🎮</span></div>{% endif %}
                 </div>
                 <div>
                     <strong>{{ game.title }}</strong>
