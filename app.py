@@ -187,6 +187,17 @@ def _set_library_response(response: Response, library_id: int | None) -> Respons
     return response
 
 
+def _library_preference_cookie_name(library_id: int, key: str) -> str:
+    username = _sanitize_username(_get_valid_current_user())
+    return f"ludarium_library_{username}_{library_id}_{key}"
+
+
+def _library_preference(library_id: int, key: str) -> str:
+    if key in request.args:
+        return _clean(request.args.get(key))
+    return _clean(request.cookies.get(_library_preference_cookie_name(library_id, key)))
+
+
 # ---------------------------------------------------------------------------
 # Database schema and helpers
 # ---------------------------------------------------------------------------
@@ -1239,16 +1250,16 @@ def dashboard() -> str:
 
 
 @app.route("/library")
-def library() -> str:
+def library() -> Response:
     db = get_db()
     library_id = _library_id(db)
-    query = _clean(request.args.get("q"))
-    status_filter = _clean(request.args.get("status"))
-    platform_filter = _safe_int(request.args.get("platform"), 1)
-    genre_filter = _clean(request.args.get("genre"))
-    sort = _clean(request.args.get("sort")) or "title"
-    order = "DESC" if _clean(request.args.get("order")) == "desc" else "ASC"
-    view = _clean(request.args.get("view")) or "card"
+    query = _library_preference(library_id, "q")
+    status_filter = _library_preference(library_id, "status")
+    platform_filter = _safe_int(_library_preference(library_id, "platform"), 1)
+    genre_filter = _library_preference(library_id, "genre")
+    sort = _library_preference(library_id, "sort") or "title"
+    order = "DESC" if _library_preference(library_id, "order") == "desc" else "ASC"
+    view = _library_preference(library_id, "view") or "card"
 
     clauses = ["g.library_id = ?"]
     params: list[Any] = [library_id]
@@ -1313,7 +1324,7 @@ def library() -> str:
         },
         key=str.casefold,
     )
-    return render_template(
+    response = make_response(render_template(
         "library.html",
         games=games,
         platforms=platforms,
@@ -1325,7 +1336,25 @@ def library() -> str:
         sort=sort,
         order=order.lower(),
         view=view,
-    )
+    ))
+    preferences = {
+        "q": query,
+        "status": status_filter,
+        "platform": str(platform_filter or ""),
+        "genre": genre_filter,
+        "sort": sort,
+        "order": order.lower(),
+        "view": view,
+    }
+    for key, value in preferences.items():
+        response.set_cookie(
+            _library_preference_cookie_name(library_id, key),
+            value,
+            max_age=USER_COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="Lax",
+        )
+    return response
 
 
 # ---------------------------------------------------------------------------
