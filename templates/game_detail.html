@@ -90,7 +90,7 @@
             <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form">
                 <input type="hidden" name="game_id" value="{{ game.id }}">
                 <div class="form-grid form-grid-2">
-                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" data-today required></div>
+                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ summary.last_used_date or '' }}" data-today required></div>
                     <div class="form-field"><label for="duration_minutes">Minutes</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="60"></div>
                 </div>
                 <div class="form-grid form-grid-2">

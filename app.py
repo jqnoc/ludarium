@@ -1278,10 +1278,17 @@ def game_detail(game_id: str) -> str:
     summary = db.execute(
         """
         SELECT COUNT(*) AS session_count, COALESCE(SUM(duration_seconds), 0) AS seconds,
-               MAX(session_date) AS last_session
+               MAX(session_date) AS last_session,
+               (
+                   SELECT recent.session_date
+                   FROM sessions recent
+                   WHERE recent.game_id = ?
+                   ORDER BY recent.id DESC
+                   LIMIT 1
+               ) AS last_used_date
         FROM sessions WHERE game_id = ?
         """,
-        (game_id,),
+        (game_id, game_id),
     ).fetchone()
     return render_template(
         "game_detail.html",
