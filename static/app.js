@@ -83,10 +83,28 @@
         });
     }
 
+    function setupSessionCsvInputs() {
+        document.querySelectorAll("[data-session-form]").forEach(function (form) {
+            var csvInput = form.querySelector("[data-session-csv]");
+            var dateInput = form.querySelector("[data-session-date]");
+            if (!csvInput || !dateInput) return;
+            var updateRequiredFields = function () {
+                var hasFile = csvInput.files && csvInput.files.length > 0;
+                dateInput.required = !hasFile;
+                form.querySelectorAll("[name^='range_']").forEach(function (input) {
+                    input.disabled = Boolean(hasFile);
+                });
+            };
+            csvInput.addEventListener("change", updateRequiredFields);
+            updateRequiredFields();
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         updateThemeButton();
         setTodayDefaults();
         setupPlaythroughSelectors();
+        setupSessionCsvInputs();
         document.querySelectorAll(".flash").forEach(function (element) {
             window.setTimeout(function () {
                 element.classList.add("flash-fade");

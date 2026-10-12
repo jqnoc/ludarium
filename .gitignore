@@ -6,3 +6,4 @@ data/
 __pycache__/
 *.pyc
 /*.lnk
+/_next.txt

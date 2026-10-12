@@ -142,10 +142,10 @@
     <aside>
         <section class="content-section quick-session-card">
             <div class="section-heading"><h2>Log a session</h2></div>
-            <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form">
+            <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form" enctype="multipart/form-data" data-session-form>
                 <input type="hidden" name="game_id" value="{{ game.id }}">
                 <div class="form-grid form-grid-2">
-                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ last_used_session.session_date if last_used_session else '' }}" data-today required></div>
+                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ last_used_session.session_date if last_used_session else '' }}" data-today data-session-date required></div>
                     <div class="form-field"><label for="duration_minutes">Minutes</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="60"></div>
                 </div>
                 <div class="form-field">
@@ -175,6 +175,14 @@
                         <div class="form-field"><label for="range_start_date" data-i18n="sessions.rangeFrom">From</label><input id="range_start_date" type="date" name="range_start_date"></div>
                         <div class="form-field"><label for="range_end_date" data-i18n="sessions.rangeTo">To</label><input id="range_end_date" type="date" name="range_end_date"></div>
                         <div class="form-field"><label for="range_duration_minutes" data-i18n="sessions.rangeTotal">Total minutes</label><input id="range_duration_minutes" type="number" min="1" step="1" name="range_duration_minutes"></div>
+                    </div>
+                </details>
+                <details class="session-csv-options">
+                    <summary data-i18n="sessions.csvTitle">Import sessions from CSV</summary>
+                    <p class="form-hint session-csv-hint" data-i18n="sessions.csvHint">Choose a CSV with date and time_played_minutes columns. Each row creates one session and uses the details selected above.</p>
+                    <div class="form-field">
+                        <label for="sessions_csv" data-i18n="sessions.csvFile">CSV file</label>
+                        <input id="sessions_csv" type="file" name="sessions_csv" accept=".csv,text/csv" data-session-csv>
                     </div>
                 </details>
             </form>

@@ -12,9 +12,9 @@
 <section class="content-section quick-session-card">
     <div class="section-heading"><h2 data-i18n="sessions.logTitle">Log a play session</h2><span class="section-hint">A date and duration are enough; everything else is optional.</span></div>
     {% if games %}
-    <form method="POST" action="{{ url_for('new_session') }}" class="session-entry-form">
+    <form method="POST" action="{{ url_for('new_session') }}" class="session-entry-form" enctype="multipart/form-data" data-session-form>
         <div class="form-field"><label for="new-game">Game</label><select id="new-game" name="game_id" required><option value="">Choose a game...</option>{% for game in games %}<option value="{{ game.id }}">{{ game.title }}</option>{% endfor %}</select></div>
-        <div class="form-field"><label for="new-date">Date</label><input id="new-date" type="date" name="session_date" data-today required></div>
+        <div class="form-field"><label for="new-date">Date</label><input id="new-date" type="date" name="session_date" data-today data-session-date required></div>
         <div class="form-field"><label for="new-duration">Minutes</label><input id="new-duration" type="number" min="0" name="duration_minutes" value="60"></div>
         <div class="form-field"><label for="new-platform">Platform</label><select id="new-platform" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}">{{ platform.name }}</option>{% endfor %}</select></div>
         <div class="form-field"><label for="new-playthrough" data-i18n="playthrough.fieldLabel">Playthrough</label><select id="new-playthrough" name="playthrough_id" data-playthrough-for="new-game"><option value="" data-i18n="playthrough.none">No playthrough</option>{% for playthrough in playthroughs %}<option value="{{ playthrough.id }}" data-game-id="{{ playthrough.game_id }}">Playthrough {{ playthrough.run_number }}{% if playthrough.name %} — {{ playthrough.name }}{% endif %}</option>{% endfor %}</select></div>
@@ -30,6 +30,14 @@
                 <div class="form-field"><label for="range_start_date" data-i18n="sessions.rangeFrom">From</label><input id="range_start_date" type="date" name="range_start_date"></div>
                 <div class="form-field"><label for="range_end_date" data-i18n="sessions.rangeTo">To</label><input id="range_end_date" type="date" name="range_end_date"></div>
                 <div class="form-field"><label for="range_duration_minutes" data-i18n="sessions.rangeTotal">Total minutes</label><input id="range_duration_minutes" type="number" min="1" step="1" name="range_duration_minutes"></div>
+            </div>
+        </details>
+        <details class="session-csv-options">
+            <summary data-i18n="sessions.csvTitle">Import sessions from CSV</summary>
+            <p class="form-hint session-csv-hint" data-i18n="sessions.csvHint">Choose a CSV with date and time_played_minutes columns. Each row creates one session and uses the details selected above.</p>
+            <div class="form-field">
+                <label for="sessions_csv" data-i18n="sessions.csvFile">CSV file</label>
+                <input id="sessions_csv" type="file" name="sessions_csv" accept=".csv,text/csv" data-session-csv>
             </div>
         </details>
     </form>

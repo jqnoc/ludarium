@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import csv
+import math
 import os
 import re
 import shutil
@@ -933,6 +935,78 @@ def _parse_session_form(
         return {}, "A valid session date is required."
     duration_minutes = _safe_float(form.get("duration_minutes"), 0, 100000)
     return _parse_session_values(db, form, session_date, duration_minutes, game_id)
+
+
+def _parse_csv_session_entries(
+    db: sqlite3.Connection,
+    form: Any,
+    upload: Any,
+    game_id: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    try:
+        raw = upload.read()
+    except OSError as exc:
+        raise ValueError("The sessions CSV could not be read.") from exc
+    try:
+        text = raw.decode("utf-8-sig") if isinstance(raw, bytes) else str(raw)
+    except UnicodeDecodeError as exc:
+        raise ValueError("The sessions CSV must use UTF-8 encoding.") from exc
+    if not text.strip():
+        return [], "The sessions CSV is empty."
+
+    reader = csv.reader(io.StringIO(text), strict=True)
+    entries: list[dict[str, Any]] = []
+    first_row = True
+    try:
+        for row in reader:
+            row_number = reader.line_num
+            if not row or not any(_clean(value) for value in row):
+                continue
+            if first_row:
+                first_row = False
+                header_date = _clean(row[0]).casefold() if row else ""
+                header_duration = (
+                    _clean(row[1]).casefold() if len(row) > 1 else ""
+                )
+                if (
+                    header_date in {"date", "session_date"}
+                    and "minute" in header_duration
+                ):
+                    continue
+            if len(row) != 2:
+                return [], (
+                    f"CSV row {row_number} must contain exactly two columns: "
+                    "date and time_played_minutes."
+                )
+            session_date = _normalise_date(row[0])
+            if not session_date:
+                return [], (
+                    f"CSV row {row_number} has an invalid date. "
+                    "Use YYYY-MM-DD."
+                )
+            duration_minutes = _safe_float(row[1], 0, 100000)
+            if duration_minutes is None or not math.isfinite(duration_minutes):
+                return [], (
+                    f"CSV row {row_number} has an invalid duration. "
+                    "Use a number of minutes from 0 to 100000."
+                )
+            values, error = _parse_session_values(
+                db,
+                form,
+                session_date,
+                duration_minutes,
+                game_id,
+            )
+            if error:
+                return [], f"CSV row {row_number}: {error}"
+            entries.append(values)
+    except csv.Error as exc:
+        raise ValueError(
+            f"The sessions CSV could not be read near row {reader.line_num}."
+        ) from exc
+    if not entries:
+        return [], "The sessions CSV contains no session rows."
+    return entries, None
 
 
 def _parse_session_entries(
@@ -1882,7 +1956,26 @@ def new_session() -> Response:
     if game is None:
         flash("Choose a valid game for the session.", "error")
         return redirect(request.referrer or url_for("sessions"))
-    session_values, error = _parse_session_entries(db, request.form, game_id)
+    csv_upload = request.files.get("sessions_csv")
+    has_csv_upload = bool(
+        csv_upload and _clean(getattr(csv_upload, "filename", ""))
+    )
+    try:
+        if has_csv_upload:
+            session_values, error = _parse_csv_session_entries(
+                db,
+                request.form,
+                csv_upload,
+                game_id,
+            )
+        else:
+            session_values, error = _parse_session_entries(
+                db,
+                request.form,
+                game_id,
+            )
+    except ValueError as exc:
+        session_values, error = [], str(exc)
     if error:
         flash(error, "error")
         return redirect(request.referrer or url_for("sessions"))
@@ -1916,7 +2009,9 @@ def new_session() -> Response:
         )
         _record_status(db, game_id, "completed", completion_date)
     db.commit()
-    if len(session_values) == 1:
+    if has_csv_upload:
+        flash(f"Imported {len(session_values)} play sessions from CSV.", "success")
+    elif len(session_values) == 1:
         flash("Play session recorded.", "success")
     else:
         flash(f"Play sessions recorded across {len(session_values)} days.", "success")

@@ -42,6 +42,14 @@ model as the development app. Packaged builds store data under
 The last selected user is remembered between launches; use “Switch user” from
 the application header when you need to change profiles.
 
+## Importing sessions
+
+The **Log a play session** form can import multiple sessions from a CSV. Use a
+file with a header and two columns, `date,time_played_minutes`, followed by one
+session per row using an ISO date (`YYYY-MM-DD`) and the duration in minutes.
+The header may be omitted. The selected game, playthrough, platform, type,
+mode, progress, and notes from the form are applied to every imported session.
+
 ## Troubleshooting
 
 The Electron shell disables hardware acceleration for compatibility with
