@@ -24,7 +24,7 @@
         <a href="{{ url_for('game_detail', game_id=entry.game_id) }}" class="activity-row">
             <span class="activity-date">{{ entry.session_date }}</span>
             <span class="activity-icon">🎮</span>
-            <span class="activity-game"><strong>{{ entry.title }}</strong>{% if entry.notes %}<small>{{ entry.notes }}</small>{% endif %}</span>
+            <span class="activity-game"><strong>{{ entry.title }}</strong>{% if entry.playthrough_id %}<small class="activity-playthrough"><span data-i18n="playthrough.shortLabel">P</span>{{ entry.run_number }}{% if entry.playthrough_name %} · {{ entry.playthrough_name }}{% endif %}</small>{% endif %}{% if entry.notes %}<small>{{ entry.notes }}</small>{% endif %}</span>
             <span class="activity-platform">{{ entry.platform_name or '—' }}</span>
             <span class="activity-duration">{{ entry.duration_seconds|duration }}</span>
         </a>

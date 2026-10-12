@@ -64,9 +64,29 @@
         });
     }
 
+    function setupPlaythroughSelectors() {
+        document.querySelectorAll("[data-playthrough-for]").forEach(function (select) {
+            var gameSelect = document.getElementById(select.dataset.playthroughFor);
+            if (!gameSelect) return;
+            var updateOptions = function () {
+                var gameId = gameSelect.value;
+                var selectedVisible = false;
+                select.querySelectorAll("option[data-game-id]").forEach(function (option) {
+                    var visible = Boolean(gameId) && option.dataset.gameId === gameId;
+                    option.hidden = !visible;
+                    if (visible && option.value === select.value) selectedVisible = true;
+                });
+                if (!selectedVisible) select.value = "";
+            };
+            gameSelect.addEventListener("change", updateOptions);
+            updateOptions();
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         updateThemeButton();
         setTodayDefaults();
+        setupPlaythroughSelectors();
         document.querySelectorAll(".flash").forEach(function (element) {
             window.setTimeout(function () {
                 element.classList.add("flash-fade");

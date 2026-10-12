@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Ludarium - Edit Playthrough{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow" data-i18n="playthrough.eyebrow">Playthrough metadata</p>
+        <h1 data-i18n="playthrough.editTitle">Edit playthrough</h1>
+        <p class="muted">{{ playthrough.title }} · Playthrough {{ playthrough.run_number }}</p>
+    </div>
+    <a href="{{ url_for('game_detail', game_id=playthrough.game_id) }}" class="btn btn-ghost" data-i18n="common.cancel">Cancel</a>
+</div>
+
+<form method="POST" class="editor-form narrow-form">
+    <div class="form-section">
+        <div class="form-grid form-grid-2">
+            <div class="form-field">
+                <label for="name" data-i18n="playthrough.name">Name</label>
+                <input id="name" name="name" value="{{ playthrough.name }}" data-i18n-placeholder="playthrough.namePlaceholder" placeholder="Optional, e.g. New Game+">
+            </div>
+            <div class="form-field">
+                <label for="status" data-i18n="playthrough.status">Status</label>
+                <select id="status" name="status">
+                    {% for value in playthrough_statuses %}
+                    <option value="{{ value }}" {% if value == playthrough.status %}selected{% endif %}>{{ playthrough_status_labels[value] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="started_date" data-i18n="playthrough.started">Started</label>
+                <input id="started_date" type="date" name="started_date" value="{{ playthrough.started_date }}">
+            </div>
+            <div class="form-field">
+                <label for="completed_date" data-i18n="playthrough.completed">Completed</label>
+                <input id="completed_date" type="date" name="completed_date" value="{{ playthrough.completed_date }}">
+            </div>
+            <div class="form-field form-field-span-2">
+                <label for="notes" data-i18n="playthrough.notes">Notes</label>
+                <textarea id="notes" name="notes" rows="5">{{ playthrough.notes }}</textarea>
+            </div>
+        </div>
+    </div>
+    <div class="form-actions">
+        <a href="{{ url_for('game_detail', game_id=playthrough.game_id) }}" class="btn btn-ghost" data-i18n="common.cancel">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg" data-i18n="common.saveChanges">Save changes</button>
+    </div>
+</form>
+{% endblock %}

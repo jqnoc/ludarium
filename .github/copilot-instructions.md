@@ -113,8 +113,10 @@ game_media      (id, game_id, kind, blob, mime, thumbnail, content_hash,
                  is_primary)
 ratings         (game_id, dimension_key, value)
 sessions        (id, game_id, date/time, duration, platform, type, mode,
-                 progress, chapter/objective, participants, location,
-                 achievements, mood, notes, timestamps)
+                 playthrough, progress, chapter/objective, participants,
+                 location, achievements, mood, notes, timestamps)
+playthroughs    (id, game_id, run number, name, status, start/completion dates,
+                 notes, timestamps)
 status_history  (id, game_id, status, changed_at)
 ```
 
@@ -167,7 +169,15 @@ Session invariants:
   before writes.
 - Statistics and activity queries must remain scoped to the selected library.
 
-### 3.3 Ratings and relationships
+### 3.3 Playthroughs
+
+Playthroughs are first-class children of games. Sessions may reference a
+playthrough through the nullable `sessions.playthrough_id` foreign key. Existing
+sessions remain unassigned until the user explicitly assigns them; do not infer
+playthroughs from dates or progress. A playthrough can be active, completed, or
+abandoned while the game's library status remains independent.
+
+### 3.4 Ratings and relationships
 
 Ratings are normalized by dimension. Current dimensions are `gameplay`,
 `story`, `visuals`, `audio`, `performance`, `accessibility`, and
@@ -178,7 +188,7 @@ existing named-relation helpers instead of duplicating parsing or insert logic.
 Game IDs are UUID strings; platform, tag, media, session, and history IDs are
 integer keys unless the schema says otherwise.
 
-### 3.4 Users and libraries
+### 3.5 Users and libraries
 
 The active user is validated from the `ludarium_user` cookie against
 `users.json`; the last valid `last_user` entry is restored when the cookie is
@@ -245,6 +255,9 @@ in the existing backend helpers.
 | `/game/<id>` | GET | Game detail and session history |
 | `/game/<id>/edit` | GET, POST | Edit a game |
 | `/game/<id>/delete` | POST | Delete a game |
+| `/game/<id>/playthrough/new` | POST | Start a playthrough |
+| `/playthrough/<id>/edit` | GET, POST | Edit a playthrough |
+| `/game/<id>/playthrough/assign-unassigned` | POST | Assign legacy sessions to a playthrough |
 | `/sessions` | GET | Filtered session history and quick logging |
 | `/session/new` | POST | Create a play session |
 | `/session/<id>/edit` | GET, POST | Edit a play session |

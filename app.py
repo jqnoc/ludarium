@@ -82,6 +82,12 @@ SESSION_TYPE_VALUES = (
     "achievement",
 )
 MODE_VALUES = ("solo", "local_coop", "online", "competitive", "mixed")
+PLAYTHROUGH_STATUS_LABELS = {
+    "active": "Active",
+    "completed": "Completed",
+    "abandoned": "Abandoned",
+}
+PLAYTHROUGH_STATUS_VALUES = tuple(PLAYTHROUGH_STATUS_LABELS)
 RATING_DIMENSIONS = (
     ("gameplay", "Gameplay"),
     ("story", "Story"),
@@ -263,6 +269,20 @@ def _init_schema(db: sqlite3.Connection) -> None:
             is_primary INTEGER NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS playthroughs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            run_number INTEGER NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active',
+            started_date TEXT NOT NULL DEFAULT '',
+            completed_date TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE (game_id, run_number)
+        );
+
         CREATE TABLE IF NOT EXISTS ratings (
             game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
             dimension_key TEXT NOT NULL,
@@ -273,6 +293,7 @@ def _init_schema(db: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            playthrough_id INTEGER REFERENCES playthroughs(id) ON DELETE SET NULL,
             session_date TEXT NOT NULL,
             start_time TEXT NOT NULL DEFAULT '',
             end_time TEXT NOT NULL DEFAULT '',
@@ -305,8 +326,27 @@ def _init_schema(db: sqlite3.Connection) -> None:
             ON games(library_id, status);
         CREATE INDEX IF NOT EXISTS idx_sessions_game_date
             ON sessions(game_id, session_date);
+        CREATE INDEX IF NOT EXISTS idx_playthroughs_game
+            ON playthroughs(game_id, run_number);
         CREATE INDEX IF NOT EXISTS idx_sessions_date
             ON sessions(session_date);
+        """
+    )
+    session_columns = {
+        row["name"] for row in db.execute("PRAGMA table_info(sessions)").fetchall()
+    }
+    if "playthrough_id" not in session_columns:
+        db.execute(
+            """
+            ALTER TABLE sessions
+            ADD COLUMN playthrough_id INTEGER
+            REFERENCES playthroughs(id) ON DELETE SET NULL
+            """
+        )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_sessions_playthrough_date
+            ON sessions(playthrough_id, session_date)
         """
     )
     if db.execute("SELECT COUNT(*) FROM libraries").fetchone()[0] == 0:
@@ -720,11 +760,113 @@ def _game_in_library(db: sqlite3.Connection, game_id: str, library_id: int) -> s
     ).fetchone()
 
 
+def _playthrough_for_game(
+    db: sqlite3.Connection,
+    playthrough_id: int | None,
+    game_id: str,
+) -> sqlite3.Row | None:
+    if playthrough_id is None:
+        return None
+    return db.execute(
+        """
+        SELECT p.*
+        FROM playthroughs p
+        WHERE p.id = ? AND p.game_id = ?
+        """,
+        (playthrough_id, game_id),
+    ).fetchone()
+
+
+def _playthrough_for_library(
+    db: sqlite3.Connection,
+    playthrough_id: int | None,
+    library_id: int,
+) -> sqlite3.Row | None:
+    if playthrough_id is None:
+        return None
+    return db.execute(
+        """
+        SELECT p.*, g.title, g.id AS game_id
+        FROM playthroughs p
+        JOIN games g ON g.id = p.game_id
+        WHERE p.id = ? AND g.library_id = ?
+        """,
+        (playthrough_id, library_id),
+    ).fetchone()
+
+
+def _playthroughs_for_game(
+    db: sqlite3.Connection,
+    game_id: str,
+) -> list[sqlite3.Row]:
+    return db.execute(
+        """
+        SELECT p.*,
+               COUNT(s.id) AS session_count,
+               COALESCE(SUM(s.duration_seconds), 0) AS seconds,
+               MIN(s.session_date) AS first_session,
+               MAX(s.session_date) AS last_session
+        FROM playthroughs p
+        LEFT JOIN sessions s ON s.playthrough_id = p.id
+        WHERE p.game_id = ?
+        GROUP BY p.id
+        ORDER BY p.run_number
+        """,
+        (game_id,),
+    ).fetchall()
+
+
+def _playthroughs_for_library(
+    db: sqlite3.Connection,
+    library_id: int,
+) -> list[sqlite3.Row]:
+    return db.execute(
+        """
+        SELECT p.id, p.game_id, p.run_number, p.name, p.status,
+               g.title
+        FROM playthroughs p
+        JOIN games g ON g.id = p.game_id
+        WHERE g.library_id = ?
+        ORDER BY g.sort_title COLLATE NOCASE, p.run_number
+        """,
+        (library_id,),
+    ).fetchall()
+
+
+def _next_playthrough_number(db: sqlite3.Connection, game_id: str) -> int:
+    value = db.execute(
+        "SELECT COALESCE(MAX(run_number), 0) + 1 FROM playthroughs WHERE game_id = ?",
+        (game_id,),
+    ).fetchone()[0]
+    return int(value)
+
+
+def _parse_playthrough_values(
+    form: Any,
+    default_status: str = "active",
+) -> tuple[dict[str, str], str | None]:
+    status = _clean(form.get("status")) or default_status
+    if status not in PLAYTHROUGH_STATUS_VALUES:
+        return {}, "Choose a valid playthrough status."
+    started_date = _normalise_date(form.get("started_date"))
+    completed_date = _normalise_date(form.get("completed_date"))
+    if started_date and completed_date and completed_date < started_date:
+        return {}, "The completion date must be on or after the start date."
+    return {
+        "name": _clean(form.get("name")),
+        "status": status,
+        "started_date": started_date,
+        "completed_date": completed_date,
+        "notes": _clean(form.get("notes")),
+    }, None
+
+
 def _parse_session_values(
     db: sqlite3.Connection,
     form: Any,
     session_date: str,
     duration_minutes: float | None,
+    game_id: str | None = None,
 ) -> tuple[dict[str, Any], str | None]:
     duration_seconds = round((duration_minutes or 0) * 60)
     session_type = _clean(form.get("session_type")) or "regular"
@@ -743,12 +885,18 @@ def _parse_session_values(
         "SELECT 1 FROM platforms WHERE id = ?", (platform_id,)
     ).fetchone() is None:
         return {}, "Choose a valid platform for the session."
+    playthrough_id = _safe_int(form.get("playthrough_id"), 1)
+    if playthrough_id is not None and (
+        not game_id or _playthrough_for_game(db, playthrough_id, game_id) is None
+    ):
+        return {}, "Choose a valid playthrough for the selected game."
     return {
         "session_date": session_date,
         "start_time": _clean(form.get("start_time")),
         "end_time": _clean(form.get("end_time")),
         "duration_seconds": duration_seconds,
         "platform_id": platform_id,
+        "playthrough_id": playthrough_id,
         "session_type": session_type,
         "mode": mode,
         "progress_before": progress_before,
@@ -767,17 +915,19 @@ def _parse_session_values(
 def _parse_session_form(
     db: sqlite3.Connection,
     form: Any,
+    game_id: str | None = None,
 ) -> tuple[dict[str, Any], str | None]:
     session_date = _normalise_date(form.get("session_date"))
     if not session_date:
         return {}, "A valid session date is required."
     duration_minutes = _safe_float(form.get("duration_minutes"), 0, 100000)
-    return _parse_session_values(db, form, session_date, duration_minutes)
+    return _parse_session_values(db, form, session_date, duration_minutes, game_id)
 
 
 def _parse_session_entries(
     db: sqlite3.Connection,
     form: Any,
+    game_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     range_fields = (
         form.get("range_start_date"),
@@ -785,7 +935,7 @@ def _parse_session_entries(
         form.get("range_duration_minutes"),
     )
     if not any(_clean(value) for value in range_fields):
-        values, error = _parse_session_form(db, form)
+        values, error = _parse_session_form(db, form, game_id)
         return ([values] if not error else []), error
 
     start_date = _normalise_date(form.get("range_start_date"))
@@ -801,7 +951,7 @@ def _parse_session_entries(
     if total_minutes is None or total_minutes <= 0:
         return [], "Enter a total play time greater than 0 minutes."
 
-    template, error = _parse_session_values(db, form, start_date, 0)
+    template, error = _parse_session_values(db, form, start_date, 0, game_id)
     if error:
         return [], error
 
@@ -875,6 +1025,7 @@ def inject_globals() -> dict[str, Any]:
             "app_version": APP_VERSION,
             "now": datetime.now(),
             "status_labels": STATUS_LABELS,
+            "playthrough_status_labels": PLAYTHROUGH_STATUS_LABELS,
         }
     db = get_db()
     libraries = db.execute(
@@ -888,6 +1039,7 @@ def inject_globals() -> dict[str, Any]:
         "app_version": APP_VERSION,
         "now": datetime.now(),
         "status_labels": STATUS_LABELS,
+        "playthrough_status_labels": PLAYTHROUGH_STATUS_LABELS,
         "db_location": str(_user_db_path(username)),
         "backup_location": str(_user_backup_dir(username)),
     }
@@ -1051,10 +1203,12 @@ def dashboard() -> str:
     ).fetchall()
     recent_sessions = db.execute(
         """
-        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name
+        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name,
+               pt.run_number, pt.name AS playthrough_name
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         LEFT JOIN platforms p ON p.id = s.platform_id
+        LEFT JOIN playthroughs pt ON pt.id = s.playthrough_id
         WHERE g.library_id = ?
         ORDER BY s.session_date DESC, s.id DESC
         LIMIT 8
@@ -1259,6 +1413,123 @@ def new_game() -> str | Response:
     return redirect(url_for("game_detail", game_id=game_id))
 
 
+@app.route("/game/<game_id>/playthrough/new", methods=["POST"])
+def new_playthrough(game_id: str) -> Response:
+    db = get_db()
+    game = _game_in_library(db, game_id, _library_id(db))
+    if game is None:
+        abort(404)
+    values, error = _parse_playthrough_values(request.form)
+    if error:
+        flash(error, "error")
+        return redirect(url_for("game_detail", game_id=game_id))
+    run_number = _next_playthrough_number(db, game_id)
+    now = datetime.now().isoformat(timespec="seconds")
+    db.execute(
+        """
+        INSERT INTO playthroughs (
+            game_id, run_number, name, status, started_date, completed_date,
+            notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            game_id,
+            run_number,
+            values["name"],
+            values["status"],
+            values["started_date"],
+            values["completed_date"],
+            values["notes"],
+            now,
+            now,
+        ),
+    )
+    db.commit()
+    flash("Playthrough created.", "success")
+    return redirect(url_for("game_detail", game_id=game_id))
+
+
+@app.route("/playthrough/<int:playthrough_id>/edit", methods=["GET", "POST"])
+def edit_playthrough(playthrough_id: int) -> str | Response:
+    db = get_db()
+    playthrough = db.execute(
+        """
+        SELECT p.*, g.title, g.id AS game_id
+        FROM playthroughs p
+        JOIN games g ON g.id = p.game_id
+        WHERE p.id = ? AND g.library_id = ?
+        """,
+        (playthrough_id, _library_id(db)),
+    ).fetchone()
+    if playthrough is None:
+        abort(404)
+    if request.method == "GET":
+        return render_template(
+            "playthrough_form.html",
+            playthrough=playthrough,
+            playthrough_statuses=PLAYTHROUGH_STATUS_VALUES,
+        )
+    values, error = _parse_playthrough_values(
+        request.form,
+        default_status=playthrough["status"],
+    )
+    if error:
+        flash(error, "error")
+        return redirect(url_for("edit_playthrough", playthrough_id=playthrough_id))
+    db.execute(
+        """
+        UPDATE playthroughs
+        SET name = ?, status = ?, started_date = ?, completed_date = ?,
+            notes = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            values["name"],
+            values["status"],
+            values["started_date"],
+            values["completed_date"],
+            values["notes"],
+            datetime.now().isoformat(timespec="seconds"),
+            playthrough_id,
+        ),
+    )
+    db.commit()
+    flash("Playthrough updated.", "success")
+    return redirect(url_for("game_detail", game_id=playthrough["game_id"]))
+
+
+@app.route("/game/<game_id>/playthrough/assign-unassigned", methods=["POST"])
+def assign_unassigned_sessions(game_id: str) -> Response:
+    db = get_db()
+    game = _game_in_library(db, game_id, _library_id(db))
+    if game is None:
+        abort(404)
+    playthrough_id = _safe_int(request.form.get("playthrough_id"), 1)
+    if playthrough_id is None or _playthrough_for_game(
+        db, playthrough_id, game_id
+    ) is None:
+        flash("Choose a valid playthrough for the game.", "error")
+        return redirect(url_for("game_detail", game_id=game_id))
+    result = db.execute(
+        """
+        UPDATE sessions
+        SET playthrough_id = ?, updated_at = ?
+        WHERE game_id = ? AND playthrough_id IS NULL
+        """,
+        (
+            playthrough_id,
+            datetime.now().isoformat(timespec="seconds"),
+            game_id,
+        ),
+    )
+    db.commit()
+    if result.rowcount:
+        flash(f"Assigned {result.rowcount} sessions to the playthrough.", "success")
+    else:
+        flash("There are no unassigned sessions for this game.", "error")
+    return redirect(url_for("game_detail", game_id=game_id))
+
+
 @app.route("/game/<game_id>")
 def game_detail(game_id: str) -> str:
     db = get_db()
@@ -1267,28 +1538,35 @@ def game_detail(game_id: str) -> str:
         abort(404)
     sessions = db.execute(
         """
-        SELECT s.*, p.name AS platform_name
+        SELECT s.*, p.name AS platform_name,
+               pt.run_number, pt.name AS playthrough_name
         FROM sessions s
         LEFT JOIN platforms p ON p.id = s.platform_id
+        LEFT JOIN playthroughs pt ON pt.id = s.playthrough_id
         WHERE s.game_id = ?
         ORDER BY s.session_date DESC, s.id DESC
         """,
         (game_id,),
     ).fetchall()
+    playthroughs = _playthroughs_for_game(db, game_id)
     summary = db.execute(
         """
         SELECT COUNT(*) AS session_count, COALESCE(SUM(duration_seconds), 0) AS seconds,
-               MAX(session_date) AS last_session,
-               (
-                   SELECT recent.session_date
-                   FROM sessions recent
-                   WHERE recent.game_id = ?
-                   ORDER BY recent.id DESC
-                   LIMIT 1
-               ) AS last_used_date
+               MAX(session_date) AS last_session
         FROM sessions WHERE game_id = ?
         """,
-        (game_id, game_id),
+        (game_id,),
+    ).fetchone()
+    last_used_session = db.execute(
+        """
+        SELECT session_date, platform_id, progress_percent, session_type, mode,
+               playthrough_id
+        FROM sessions
+        WHERE game_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (game_id,),
     ).fetchone()
     return render_template(
         "game_detail.html",
@@ -1299,7 +1577,10 @@ def game_detail(game_id: str) -> str:
         rating_dimensions=RATING_DIMENSIONS,
         media=_primary_media(db, game_id),
         sessions=sessions,
+        playthroughs=playthroughs,
+        unassigned_sessions=[row for row in sessions if row["playthrough_id"] is None],
         summary=summary,
+        last_used_session=last_used_session,
         session_platforms=db.execute(
             "SELECT id, name FROM platforms ORDER BY name COLLATE NOCASE"
         ).fetchall(),
@@ -1424,6 +1705,7 @@ def sessions() -> str:
     library_id = _library_id(db)
     query = _clean(request.args.get("q"))
     platform_id = _safe_int(request.args.get("platform"), 1)
+    playthrough_filter = _clean(request.args.get("playthrough"))
     date_from = _normalise_date(request.args.get("date_from"))
     date_to = _normalise_date(request.args.get("date_to"))
     clauses = ["g.library_id = ?"]
@@ -1434,6 +1716,15 @@ def sessions() -> str:
     if platform_id:
         clauses.append("s.platform_id = ?")
         params.append(platform_id)
+    if playthrough_filter == "unassigned":
+        clauses.append("s.playthrough_id IS NULL")
+    elif playthrough_filter:
+        selected_playthrough_id = _safe_int(playthrough_filter, 1)
+        if _playthrough_for_library(db, selected_playthrough_id, library_id) is not None:
+            clauses.append("s.playthrough_id = ?")
+            params.append(selected_playthrough_id)
+        else:
+            playthrough_filter = ""
     if date_from:
         clauses.append("s.session_date >= ?")
         params.append(date_from)
@@ -1442,10 +1733,12 @@ def sessions() -> str:
         params.append(date_to)
     rows = db.execute(
         f"""
-        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name
+        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name,
+               pt.run_number, pt.name AS playthrough_name
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         LEFT JOIN platforms p ON p.id = s.platform_id
+        LEFT JOIN playthroughs pt ON pt.id = s.playthrough_id
         WHERE {' AND '.join(clauses)}
         ORDER BY s.session_date DESC, s.id DESC
         """,
@@ -1458,16 +1751,19 @@ def sessions() -> str:
     platforms = db.execute(
         "SELECT id, name FROM platforms ORDER BY name COLLATE NOCASE"
     ).fetchall()
+    playthroughs = _playthroughs_for_library(db, library_id)
     return render_template(
         "sessions.html",
         sessions=rows,
         games=games,
         platforms=platforms,
         session_platforms=platforms,
+        playthroughs=playthroughs,
         session_types=SESSION_TYPE_VALUES,
         mode_values=MODE_VALUES,
         query=query,
         platform_id=platform_id,
+        playthrough_filter=playthrough_filter,
         date_from=date_from,
         date_to=date_to,
     )
@@ -1478,12 +1774,12 @@ def _create_session(db: sqlite3.Connection, game_id: str, values: dict[str, Any]
     db.execute(
         """
         INSERT INTO sessions (
-            game_id, session_date, start_time, end_time, duration_seconds,
+            game_id, playthrough_id, session_date, start_time, end_time, duration_seconds,
             platform_id, session_type, mode, progress_before, progress_after,
             progress_percent, chapter, objective, participants, location,
             achievements, mood, notes, created_at, updated_at
         ) VALUES (
-            :game_id, :session_date, :start_time, :end_time, :duration_seconds,
+            :game_id, :playthrough_id, :session_date, :start_time, :end_time, :duration_seconds,
             :platform_id, :session_type, :mode, :progress_before, :progress_after,
             :progress_percent, :chapter, :objective, :participants, :location,
             :achievements, :mood, :notes, :created_at, :updated_at
@@ -1491,6 +1787,62 @@ def _create_session(db: sqlite3.Connection, game_id: str, values: dict[str, Any]
         """,
         {"game_id": game_id, **values, "created_at": now, "updated_at": now},
     )
+
+
+def _sync_playthroughs_from_sessions(
+    db: sqlite3.Connection,
+    session_values: list[dict[str, Any]],
+) -> None:
+    now = datetime.now().isoformat(timespec="seconds")
+    first_dates: dict[int, str] = {}
+    completed_dates: dict[int, str] = {}
+    for values in session_values:
+        playthrough_id = values.get("playthrough_id")
+        if playthrough_id is None:
+            continue
+        first_dates.setdefault(playthrough_id, values["session_date"])
+        first_dates[playthrough_id] = min(
+            first_dates[playthrough_id],
+            values["session_date"],
+        )
+        if (
+            values["session_type"] == "completion"
+            or (
+                values["progress_percent"] is not None
+                and values["progress_percent"] >= 100
+            )
+        ):
+            completed_dates[playthrough_id] = max(
+                completed_dates.get(playthrough_id, values["session_date"]),
+                values["session_date"],
+            )
+    for playthrough_id, started_date in first_dates.items():
+        db.execute(
+            """
+            UPDATE playthroughs
+            SET started_date = CASE
+                    WHEN started_date = '' THEN ?
+                    ELSE started_date
+                END,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (started_date, now, playthrough_id),
+        )
+    for playthrough_id, completed_date in completed_dates.items():
+        db.execute(
+            """
+            UPDATE playthroughs
+            SET status = 'completed',
+                completed_date = CASE
+                    WHEN completed_date = '' THEN ?
+                    ELSE completed_date
+                END,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (completed_date, now, playthrough_id),
+        )
 
 
 @app.route("/session/new", methods=["POST"])
@@ -1501,12 +1853,13 @@ def new_session() -> Response:
     if game is None:
         flash("Choose a valid game for the session.", "error")
         return redirect(request.referrer or url_for("sessions"))
-    session_values, error = _parse_session_entries(db, request.form)
+    session_values, error = _parse_session_entries(db, request.form, game_id)
     if error:
         flash(error, "error")
         return redirect(request.referrer or url_for("sessions"))
     for values in session_values:
         _create_session(db, game_id, values)
+    _sync_playthroughs_from_sessions(db, session_values)
     if not game["start_date"] and session_values:
         db.execute(
             "UPDATE games SET start_date = ? WHERE id = ?",
@@ -1565,21 +1918,23 @@ def edit_session(session_id: int) -> str | Response:
             platforms=db.execute(
                 "SELECT id, name FROM platforms ORDER BY name COLLATE NOCASE"
             ).fetchall(),
+            playthroughs=_playthroughs_for_library(db, _library_id(db)),
             session_types=SESSION_TYPE_VALUES,
             mode_values=MODE_VALUES,
         )
-    values, error = _parse_session_form(db, request.form)
-    if error:
-        flash(error, "error")
-        return redirect(url_for("edit_session", session_id=session_id))
     game_id = _clean(request.form.get("game_id")) or session_row["game_id"]
     if _game_in_library(db, game_id, _library_id(db)) is None:
         flash("Choose a valid game for the session.", "error")
         return redirect(url_for("edit_session", session_id=session_id))
+    values, error = _parse_session_form(db, request.form, game_id)
+    if error:
+        flash(error, "error")
+        return redirect(url_for("edit_session", session_id=session_id))
     db.execute(
         """
         UPDATE sessions SET
-            game_id = :game_id, session_date = :session_date, start_time = :start_time,
+            game_id = :game_id, playthrough_id = :playthrough_id,
+            session_date = :session_date, start_time = :start_time,
             end_time = :end_time, duration_seconds = :duration_seconds,
             platform_id = :platform_id, session_type = :session_type, mode = :mode,
             progress_before = :progress_before, progress_after = :progress_after,
@@ -1595,6 +1950,7 @@ def edit_session(session_id: int) -> str | Response:
             "updated_at": datetime.now().isoformat(timespec="seconds"),
         },
     )
+    _sync_playthroughs_from_sessions(db, [values])
     db.commit()
     flash("Play session updated.", "success")
     return redirect(url_for("sessions"))
@@ -1727,10 +2083,12 @@ def activity() -> str:
     library_id = _library_id(db)
     rows = db.execute(
         """
-        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name
+        SELECT s.*, g.title, g.id AS game_id, p.name AS platform_name,
+               pt.run_number, pt.name AS playthrough_name
         FROM sessions s
         JOIN games g ON g.id = s.game_id
         LEFT JOIN platforms p ON p.id = s.platform_id
+        LEFT JOIN playthroughs pt ON pt.id = s.playthrough_id
         WHERE g.library_id = ?
         ORDER BY s.session_date DESC, s.id DESC
         """,

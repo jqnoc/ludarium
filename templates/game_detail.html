@@ -55,15 +55,70 @@
     <div><strong>{{ game.completion_date or '—' }}</strong><span>Completed</span></div>
 </section>
 
+<section class="content-section playthrough-section">
+    <div class="section-heading">
+        <h2 data-i18n="playthrough.title">Playthroughs</h2>
+        <span class="section-hint">{{ playthroughs|length }} <span data-i18n="playthrough.countLabel">playthroughs</span></span>
+    </div>
+    <form method="POST" action="{{ url_for('new_playthrough', game_id=game.id) }}" class="inline-form playthrough-create-form">
+        <input type="text" name="name" data-i18n-placeholder="playthrough.namePlaceholder" placeholder="Optional name, e.g. New Game+">
+        <button type="submit" class="btn btn-secondary" data-i18n="playthrough.start">Start playthrough</button>
+    </form>
+    {% if playthroughs %}
+    <div class="playthrough-grid">
+        {% for playthrough in playthroughs %}
+        <article class="playthrough-card">
+            <div class="playthrough-card-header">
+                <div>
+                    <p class="eyebrow"><span data-i18n="playthrough.numberLabel">Playthrough</span> {{ playthrough.run_number }}</p>
+                    <h3>{% if playthrough.name %}{{ playthrough.name }}{% else %}<span data-i18n="playthrough.defaultName">Playthrough</span> {{ playthrough.run_number }}{% endif %}</h3>
+                </div>
+                <span class="badge playthrough-status-{{ playthrough.status }}">{{ playthrough_status_labels[playthrough.status] }}</span>
+            </div>
+            <div class="playthrough-stats">
+                <span><strong>{{ playthrough.session_count }}</strong><small data-i18n="playthrough.sessions">Sessions</small></span>
+                <span><strong>{{ playthrough.seconds|duration }}</strong><small data-i18n="playthrough.playTime">Play time</small></span>
+                <span><strong>{{ playthrough.first_session or '—' }}</strong><small data-i18n="playthrough.started">Started</small></span>
+                <span><strong>{{ playthrough.last_session or '—' }}</strong><small data-i18n="playthrough.lastSession">Last session</small></span>
+            </div>
+            <div class="playthrough-actions">
+                <a href="{{ url_for('sessions', q=game.title, playthrough=playthrough.id) }}" class="text-link" data-i18n="playthrough.viewSessions">View sessions</a>
+                <a href="{{ url_for('edit_playthrough', playthrough_id=playthrough.id) }}" class="row-action" data-i18n="playthrough.edit">Edit</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted" data-i18n="playthrough.empty">No playthroughs yet. Start one when you begin a new run.</p>
+    {% endif %}
+    {% if unassigned_sessions %}
+    <div class="playthrough-migration">
+        <p><strong data-i18n="playthrough.unassignedTitle">Unassigned sessions</strong> <span data-i18n="playthrough.unassignedHint">These existing sessions are not assigned to a playthrough.</span></p>
+        {% if playthroughs %}
+        <form method="POST" action="{{ url_for('assign_unassigned_sessions', game_id=game.id) }}" class="inline-form">
+            <label for="assign-playthrough" data-i18n="playthrough.assignTo">Assign them to</label>
+            <select id="assign-playthrough" name="playthrough_id" required>
+                {% for playthrough in playthroughs %}
+                <option value="{{ playthrough.id }}">Playthrough {{ playthrough.run_number }}{% if playthrough.name %} — {{ playthrough.name }}{% endif %}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-ghost btn-sm" data-i18n="playthrough.assign">Assign sessions</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+
 <div class="detail-columns">
     <div>
         <section class="content-section">
-            <div class="section-heading"><h2>Play sessions</h2><a href="{{ url_for('sessions', q=game.title) }}" class="text-link">Open log →</a></div>
+            <div class="section-heading"><h2 data-i18n="playthrough.sessionHistory">Play sessions</h2><a href="{{ url_for('sessions', q=game.title) }}" class="text-link" data-i18n="playthrough.openLog">Open log →</a></div>
             {% if sessions %}
             <div class="session-feed">
                 {% for entry in sessions[:8] %}
-                <div class="session-feed-row session-feed-static">
+                <div class="session-feed-row detail-session-feed-row session-feed-static">
                     <span class="session-date">{{ entry.session_date }}</span>
+                    <span class="session-playthrough">{% if entry.playthrough_id %}<span data-i18n="playthrough.shortLabel">P</span>{{ entry.run_number }}{% if entry.playthrough_name %} · {{ entry.playthrough_name }}{% endif %}{% else %}<span data-i18n="playthrough.unassigned">Unassigned</span>{% endif %}</span>
                     <span class="session-platform">{{ entry.platform_name or '—' }}</span>
                     <span class="session-duration">{{ entry.duration_seconds|duration }}</span>
                     {% if entry.progress_percent is not none %}<span class="session-progress">{{ '%.0f'|format(entry.progress_percent) }}%</span>{% endif %}
@@ -90,16 +145,26 @@
             <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form">
                 <input type="hidden" name="game_id" value="{{ game.id }}">
                 <div class="form-grid form-grid-2">
-                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ summary.last_used_date or '' }}" data-today required></div>
+                    <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ last_used_session.session_date if last_used_session else '' }}" data-today required></div>
                     <div class="form-field"><label for="duration_minutes">Minutes</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="60"></div>
                 </div>
-                <div class="form-grid form-grid-2">
-                    <div class="form-field"><label for="platform_id">Platform</label><select id="platform_id" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}">{{ platform.name }}</option>{% endfor %}</select></div>
-                    <div class="form-field"><label for="progress_percent">Progress %</label><input id="progress_percent" type="number" min="0" max="100" step="1" name="progress_percent"></div>
+                <div class="form-field">
+                    <label for="playthrough_id" data-i18n="playthrough.fieldLabel">Playthrough</label>
+                    <select id="playthrough_id" name="playthrough_id">
+                        <option value="" data-i18n="playthrough.none">No playthrough</option>
+                        {% for playthrough in playthroughs %}
+                        <option value="{{ playthrough.id }}" {% if last_used_session and playthrough.id == last_used_session.playthrough_id %}selected{% endif %}>Playthrough {{ playthrough.run_number }}{% if playthrough.name %} — {{ playthrough.name }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="form-hint" data-i18n="playthrough.fieldHint">Use this to group sessions from the same run.</span>
                 </div>
                 <div class="form-grid form-grid-2">
-                    <div class="form-field"><label for="session_type">Type</label><select id="session_type" name="session_type">{% for value in session_types %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
-                    <div class="form-field"><label for="mode">Mode</label><select id="mode" name="mode">{% for value in mode_values %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+                    <div class="form-field"><label for="platform_id">Platform</label><select id="platform_id" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}" {% if last_used_session and platform.id == last_used_session.platform_id %}selected{% endif %}>{{ platform.name }}</option>{% endfor %}</select></div>
+                    <div class="form-field"><label for="progress_percent">Progress %</label><input id="progress_percent" type="number" min="0" max="100" step="1" name="progress_percent" value="{{ last_used_session.progress_percent if last_used_session and last_used_session.progress_percent is not none else '' }}"></div>
+                </div>
+                <div class="form-grid form-grid-2">
+                    <div class="form-field"><label for="session_type">Type</label><select id="session_type" name="session_type">{% for value in session_types %}<option value="{{ value }}" {% if last_used_session and value == last_used_session.session_type %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
+                    <div class="form-field"><label for="mode">Mode</label><select id="mode" name="mode">{% for value in mode_values %}<option value="{{ value }}" {% if last_used_session and value == last_used_session.mode %}selected{% endif %}>{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
                 </div>
                 <div class="form-field"><label for="session_notes">Notes</label><textarea id="session_notes" name="notes" rows="3"></textarea></div>
                 <button type="submit" class="btn btn-primary btn-wide">Save session</button>
