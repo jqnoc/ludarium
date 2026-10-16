@@ -146,7 +146,14 @@
                 <input type="hidden" name="game_id" value="{{ game.id }}">
                 <div class="form-grid form-grid-2">
                     <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ last_used_session.session_date if last_used_session else '' }}" data-today data-session-date required></div>
-                    <div class="form-field"><label for="duration_minutes">Minutes</label><input id="duration_minutes" type="number" min="0" name="duration_minutes" value="60"></div>
+                    <div class="form-field duration-field">
+                        <span class="form-field-label" data-i18n="sessions.duration">Duration</span>
+                        <div class="duration-inputs">
+                            <label for="duration-hours"><span data-i18n="sessions.hours">Hours</span><input id="duration-hours" type="number" min="0" max="1666" step="1" name="duration_hours" value="1"></label>
+                            <label for="duration-minutes"><span data-i18n="sessions.minutes">Minutes</span><input id="duration-minutes" type="number" min="0" max="59" step="1" name="duration_minutes" value="0"></label>
+                            <label for="duration-seconds"><span data-i18n="sessions.seconds">Seconds</span><input id="duration-seconds" type="number" min="0" max="59" step="1" name="duration_seconds" value="0"></label>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-field">
                     <label for="playthrough_id" data-i18n="playthrough.fieldLabel">Playthrough</label>
@@ -174,7 +181,14 @@
                     <div class="session-range-grid">
                         <div class="form-field"><label for="range_start_date" data-i18n="sessions.rangeFrom">From</label><input id="range_start_date" type="date" name="range_start_date"></div>
                         <div class="form-field"><label for="range_end_date" data-i18n="sessions.rangeTo">To</label><input id="range_end_date" type="date" name="range_end_date"></div>
-                        <div class="form-field"><label for="range_duration_minutes" data-i18n="sessions.rangeTotal">Total minutes</label><input id="range_duration_minutes" type="number" min="1" step="1" name="range_duration_minutes"></div>
+                        <div class="form-field duration-field">
+                            <span class="form-field-label" data-i18n="sessions.duration">Total duration</span>
+                            <div class="duration-inputs">
+                                <label for="range_duration_hours"><span data-i18n="sessions.hours">Hours</span><input id="range_duration_hours" type="number" min="0" max="1666" step="1" name="range_duration_hours"></label>
+                                <label for="range_duration_minutes"><span data-i18n="sessions.minutes">Minutes</span><input id="range_duration_minutes" type="number" min="0" max="59" step="1" name="range_duration_minutes"></label>
+                                <label for="range_duration_seconds"><span data-i18n="sessions.seconds">Seconds</span><input id="range_duration_seconds" type="number" min="0" max="59" step="1" name="range_duration_seconds"></label>
+                            </div>
+                        </div>
                     </div>
                 </details>
                 <details class="session-csv-options">

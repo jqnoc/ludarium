@@ -49,6 +49,9 @@ file with a header and two columns, `date,time_played_minutes`, followed by one
 session per row using an ISO date (`YYYY-MM-DD`) and the duration in minutes.
 The header may be omitted. The selected game, playthrough, platform, type,
 mode, progress, and notes from the form are applied to every imported session.
+For manual session logging, enter the duration as separate hours, minutes, and
+seconds. Session durations are stored as total seconds; older databases that
+used a `duration_minutes` column are migrated automatically when opened.
 
 ## Troubleshooting
 

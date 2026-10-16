@@ -253,6 +253,8 @@ html[data-theme="dark"] .stat-card strong { color: var(--lu-text); }
 .game-card-body { padding: .75rem; }
 .game-card h3 { margin: 0 0 .2rem; overflow: hidden; font-size: .98rem; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .game-card-meta, .tag-line { margin: 0; overflow: hidden; color: var(--lu-text-light); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
+.game-card-playtime { display: flex; justify-content: space-between; gap: .5rem; margin: .4rem 0 0; color: var(--lu-text-light); font-size: .76rem; }
+.game-card-playtime strong { color: var(--lu-text); font-size: .78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .game-rating { margin: .4rem 0 0; color: var(--lu-warning); font-size: .8rem; font-weight: 700; }
 .tag-line { margin-top: .25rem; }
 
@@ -292,6 +294,7 @@ html[data-theme="dark"] .stat-card strong { color: var(--lu-text); }
 .form-field-span-2 { grid-column: span 2; }
 .form-field-span-3 { grid-column: span 3; }
 .form-field label { color: var(--lu-text-light); font-size: .78rem; font-weight: 700; }
+.form-field-label { color: var(--lu-text-light); font-size: .78rem; font-weight: 700; }
 .required { color: var(--lu-error); }
 .form-field input, .form-field select, .form-field textarea, .stack-form input, .inline-form input, .inline-form select, .session-entry-form input, .session-entry-form select {
     width: 100%;
@@ -312,6 +315,9 @@ html[data-theme="dark"] .stat-card strong { color: var(--lu-text); }
 .session-entry-form { display: grid; grid-template-columns: 2fr repeat(7, minmax(0, 1fr)); gap: .8rem; align-items: end; }
 .session-entry-form .form-field-span-2 { grid-column: span 2; }
 .session-entry-form .btn { min-height: 38px; }
+.duration-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
+.duration-inputs label { display: flex; min-width: 0; flex-direction: column; gap: .32rem; color: var(--lu-text-light); font-size: .68rem; font-weight: 700; }
+.duration-inputs input { min-width: 0; }
 .session-range-options { grid-column: 1 / -1; margin-top: .2rem; padding-top: .75rem; border-top: 1px solid var(--lu-border); }
 .session-range-options summary { cursor: pointer; color: var(--lu-teal-dark); font-size: .8rem; font-weight: 700; }
 .session-range-hint { margin: .6rem 0 0; }

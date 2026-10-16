@@ -15,7 +15,14 @@
     <form method="POST" action="{{ url_for('new_session') }}" class="session-entry-form" enctype="multipart/form-data" data-session-form>
         <div class="form-field"><label for="new-game">Game</label><select id="new-game" name="game_id" required><option value="">Choose a game...</option>{% for game in games %}<option value="{{ game.id }}">{{ game.title }}</option>{% endfor %}</select></div>
         <div class="form-field"><label for="new-date">Date</label><input id="new-date" type="date" name="session_date" data-today data-session-date required></div>
-        <div class="form-field"><label for="new-duration">Minutes</label><input id="new-duration" type="number" min="0" name="duration_minutes" value="60"></div>
+        <div class="form-field duration-field">
+            <span class="form-field-label" data-i18n="sessions.duration">Duration</span>
+            <div class="duration-inputs">
+                <label for="new-duration-hours"><span data-i18n="sessions.hours">Hours</span><input id="new-duration-hours" type="number" min="0" max="1666" step="1" name="duration_hours" value="1"></label>
+                <label for="new-duration-minutes"><span data-i18n="sessions.minutes">Minutes</span><input id="new-duration-minutes" type="number" min="0" max="59" step="1" name="duration_minutes" value="0"></label>
+                <label for="new-duration-seconds"><span data-i18n="sessions.seconds">Seconds</span><input id="new-duration-seconds" type="number" min="0" max="59" step="1" name="duration_seconds" value="0"></label>
+            </div>
+        </div>
         <div class="form-field"><label for="new-platform">Platform</label><select id="new-platform" name="platform_id"><option value="">—</option>{% for platform in session_platforms %}<option value="{{ platform.id }}">{{ platform.name }}</option>{% endfor %}</select></div>
         <div class="form-field"><label for="new-playthrough" data-i18n="playthrough.fieldLabel">Playthrough</label><select id="new-playthrough" name="playthrough_id" data-playthrough-for="new-game"><option value="" data-i18n="playthrough.none">No playthrough</option>{% for playthrough in playthroughs %}<option value="{{ playthrough.id }}" data-game-id="{{ playthrough.game_id }}">Playthrough {{ playthrough.run_number }}{% if playthrough.name %} — {{ playthrough.name }}{% endif %}</option>{% endfor %}</select></div>
         <div class="form-field"><label for="new-type">Type</label><select id="new-type" name="session_type">{% for value in session_types %}<option value="{{ value }}">{{ value|replace('_', ' ')|title }}</option>{% endfor %}</select></div>
@@ -29,7 +36,14 @@
             <div class="session-range-grid">
                 <div class="form-field"><label for="range_start_date" data-i18n="sessions.rangeFrom">From</label><input id="range_start_date" type="date" name="range_start_date"></div>
                 <div class="form-field"><label for="range_end_date" data-i18n="sessions.rangeTo">To</label><input id="range_end_date" type="date" name="range_end_date"></div>
-                <div class="form-field"><label for="range_duration_minutes" data-i18n="sessions.rangeTotal">Total minutes</label><input id="range_duration_minutes" type="number" min="1" step="1" name="range_duration_minutes"></div>
+                <div class="form-field duration-field">
+                    <span class="form-field-label" data-i18n="sessions.duration">Total duration</span>
+                    <div class="duration-inputs">
+                        <label for="range_duration_hours"><span data-i18n="sessions.hours">Hours</span><input id="range_duration_hours" type="number" min="0" max="1666" step="1" name="range_duration_hours"></label>
+                        <label for="range_duration_minutes"><span data-i18n="sessions.minutes">Minutes</span><input id="range_duration_minutes" type="number" min="0" max="59" step="1" name="range_duration_minutes"></label>
+                        <label for="range_duration_seconds"><span data-i18n="sessions.seconds">Seconds</span><input id="range_duration_seconds" type="number" min="0" max="59" step="1" name="range_duration_seconds"></label>
+                    </div>
+                </div>
             </div>
         </details>
         <details class="session-csv-options">

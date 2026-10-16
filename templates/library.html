@@ -39,6 +39,7 @@
         <option value="release_year" {% if sort == 'release_year' %}selected{% endif %} data-i18n="library.sortRelease">Release year</option>
         <option value="rating" {% if sort == 'rating' %}selected{% endif %} data-i18n="library.sortRating">Rating</option>
         <option value="status" {% if sort == 'status' %}selected{% endif %} data-i18n="library.sortStatus">Status</option>
+        <option value="play_time" {% if sort == 'play_time' %}selected{% endif %} data-i18n="library.sortPlayTime">Time played</option>
     </select>
     <select name="order" onchange="this.form.submit()" aria-label="Sort order">
         <option value="asc" {% if order == 'asc' %}selected{% endif %}>↑ Asc</option>
@@ -85,6 +86,7 @@
             <div class="game-card-body">
                 <h3>{{ game.title }}</h3>
                 <p class="game-card-meta">{{ game.release_year or 'Release unknown' }}{% if game.platform_names %} · {{ game.platform_names }}{% endif %}</p>
+                <p class="game-card-playtime"><span data-i18n="library.sortPlayTime">Time played</span><strong>{{ game.played_time_label }}</strong></p>
                 {% if game.rating is not none %}<p class="game-rating">★ {{ game.rating_label }}</p>{% endif %}
                 {% if game.genres %}<p class="tag-line">{{ game.genres }}</p>{% endif %}
             </div>

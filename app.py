@@ -60,6 +60,8 @@ STATUS_LABELS = {
     "replaying": "Replaying",
 }
 STATUS_VALUES = tuple(STATUS_LABELS)
+MAX_SESSION_DURATION_MINUTES = 100000
+MAX_SESSION_DURATION_SECONDS = MAX_SESSION_DURATION_MINUTES * 60
 GAME_TYPE_VALUES = (
     "base_game",
     "expansion",
@@ -348,6 +350,22 @@ def _init_schema(db: sqlite3.Connection) -> None:
     session_columns = {
         row["name"] for row in db.execute("PRAGMA table_info(sessions)").fetchall()
     }
+    if "duration_seconds" not in session_columns:
+        db.execute(
+            """
+            ALTER TABLE sessions
+            ADD COLUMN duration_seconds INTEGER NOT NULL DEFAULT 0
+            """
+        )
+        if "duration_minutes" in session_columns:
+            db.execute(
+                """
+                UPDATE sessions
+                SET duration_seconds = CAST(
+                    ROUND(COALESCE(duration_minutes, 0) * 60) AS INTEGER
+                )
+                """
+            )
     if "playthrough_id" not in session_columns:
         db.execute(
             """
@@ -507,10 +525,14 @@ def _normalise_date(value: Any) -> str:
 def _duration_label(seconds: int | float | None) -> str:
     total = max(0, int(seconds or 0))
     hours, remainder = divmod(total, 3600)
-    minutes, _seconds = divmod(remainder, 60)
+    minutes, remaining_seconds = divmod(remainder, 60)
     if hours:
-        return f"{hours}h {minutes:02d}m"
-    return f"{minutes}m"
+        label = f"{hours}h {minutes:02d}m"
+    else:
+        label = f"{minutes}m"
+    if remaining_seconds:
+        label += f" {remaining_seconds:02d}s"
+    return label
 
 
 def _duration_hms(seconds: int | float | None) -> str:
@@ -874,14 +896,80 @@ def _parse_playthrough_values(
     }, None
 
 
+def _parse_duration_seconds(
+    form: Any,
+    prefix: str = "",
+) -> tuple[int, str | None]:
+    hours_key = f"{prefix}duration_hours"
+    minutes_key = f"{prefix}duration_minutes"
+    seconds_key = f"{prefix}duration_seconds"
+    has_split_duration = (
+        form.get(hours_key) is not None or form.get(seconds_key) is not None
+    )
+    if not has_split_duration:
+        minutes_text = _clean(form.get(minutes_key))
+        if not minutes_text:
+            return 0, None
+        try:
+            minutes = float(minutes_text)
+        except (TypeError, ValueError):
+            return 0, "Enter a valid duration in minutes."
+        if (
+            not math.isfinite(minutes)
+            or minutes < 0
+            or minutes > MAX_SESSION_DURATION_MINUTES
+        ):
+            return 0, (
+                "Duration must be between 0 and "
+                f"{MAX_SESSION_DURATION_MINUTES} minutes."
+            )
+        return round(minutes * 60), None
+
+    def parse_component(
+        key: str,
+        label: str,
+        maximum: int | None = None,
+    ) -> tuple[int, str | None]:
+        text = _clean(form.get(key))
+        if not text:
+            return 0, None
+        if not re.fullmatch(r"[0-9]+", text):
+            return 0, f"{label} must be a whole number."
+        value = int(text)
+        if maximum is not None and value > maximum:
+            return 0, f"{label} must be between 0 and {maximum}."
+        return value, None
+
+    hours, error = parse_component(
+        hours_key,
+        "Hours",
+        MAX_SESSION_DURATION_SECONDS // 3600,
+    )
+    if error:
+        return 0, error
+    minutes, error = parse_component(minutes_key, "Minutes", 59)
+    if error:
+        return 0, error
+    seconds, error = parse_component(seconds_key, "Seconds", 59)
+    if error:
+        return 0, error
+
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    if total_seconds > MAX_SESSION_DURATION_SECONDS:
+        return 0, (
+            "Duration must be no more than "
+            f"{MAX_SESSION_DURATION_MINUTES} minutes."
+        )
+    return total_seconds, None
+
+
 def _parse_session_values(
     db: sqlite3.Connection,
     form: Any,
     session_date: str,
-    duration_minutes: float | None,
+    duration_seconds: int,
     game_id: str | None = None,
 ) -> tuple[dict[str, Any], str | None]:
-    duration_seconds = round((duration_minutes or 0) * 60)
     session_type = _clean(form.get("session_type")) or "regular"
     if session_type not in SESSION_TYPE_VALUES:
         session_type = "regular"
@@ -933,8 +1021,10 @@ def _parse_session_form(
     session_date = _normalise_date(form.get("session_date"))
     if not session_date:
         return {}, "A valid session date is required."
-    duration_minutes = _safe_float(form.get("duration_minutes"), 0, 100000)
-    return _parse_session_values(db, form, session_date, duration_minutes, game_id)
+    duration_seconds, error = _parse_duration_seconds(form)
+    if error:
+        return {}, error
+    return _parse_session_values(db, form, session_date, duration_seconds, game_id)
 
 
 def _parse_csv_session_entries(
@@ -984,17 +1074,22 @@ def _parse_csv_session_entries(
                     f"CSV row {row_number} has an invalid date. "
                     "Use YYYY-MM-DD."
                 )
-            duration_minutes = _safe_float(row[1], 0, 100000)
+            duration_minutes = _safe_float(
+                row[1],
+                0,
+                MAX_SESSION_DURATION_MINUTES,
+            )
             if duration_minutes is None or not math.isfinite(duration_minutes):
                 return [], (
                     f"CSV row {row_number} has an invalid duration. "
-                    "Use a number of minutes from 0 to 100000."
+                    "Use a number of minutes from 0 to "
+                    f"{MAX_SESSION_DURATION_MINUTES}."
                 )
             values, error = _parse_session_values(
                 db,
                 form,
                 session_date,
-                duration_minutes,
+                round(duration_minutes * 60),
                 game_id,
             )
             if error:
@@ -1017,7 +1112,9 @@ def _parse_session_entries(
     range_fields = (
         form.get("range_start_date"),
         form.get("range_end_date"),
+        form.get("range_duration_hours"),
         form.get("range_duration_minutes"),
+        form.get("range_duration_seconds"),
     )
     if not any(_clean(value) for value in range_fields):
         values, error = _parse_session_form(db, form, game_id)
@@ -1032,8 +1129,10 @@ def _parse_session_entries(
     if end < start:
         return [], "The playing range end date must be on or after its start date."
 
-    total_minutes = _safe_float(form.get("range_duration_minutes"), 0, 100000)
-    if total_minutes is None or total_minutes <= 0:
+    total_seconds, error = _parse_duration_seconds(form, "range_")
+    if error:
+        return [], error
+    if total_seconds <= 0:
         return [], "Enter a total play time greater than 0 minutes."
 
     template, error = _parse_session_values(db, form, start_date, 0, game_id)
@@ -1041,7 +1140,6 @@ def _parse_session_entries(
         return [], error
 
     day_count = (end - start).days + 1
-    total_seconds = round(total_minutes * 60)
     daily_seconds, remainder = divmod(total_seconds, day_count)
     entries: list[dict[str, Any]] = []
     for offset in range(day_count):
@@ -1361,11 +1459,18 @@ def library() -> Response:
         "release_year": "g.release_year",
         "rating": "g.rating",
         "status": "g.status",
+        "play_time": "played_seconds",
     }
     sort_column = sort_columns.get(sort, "g.sort_title")
     rows = db.execute(
         f"""
         SELECT g.*,
+               COALESCE(
+                   (SELECT SUM(s.duration_seconds)
+                    FROM sessions s
+                    WHERE s.game_id = g.id),
+                   0
+               ) AS played_seconds,
                COALESCE(GROUP_CONCAT(DISTINCT p.name), '') AS platform_names,
                (SELECT id FROM game_media m WHERE m.game_id = g.id
                 ORDER BY m.is_primary DESC, m.id DESC LIMIT 1) AS media_id
@@ -1378,7 +1483,11 @@ def library() -> Response:
         """,
         params,
     ).fetchall()
-    games = [_format_game_for_template(db, dict(row)) for row in rows]
+    games = []
+    for row in rows:
+        game = _format_game_for_template(db, dict(row))
+        game["played_time_label"] = _duration_label(game["played_seconds"])
+        games.append(game)
     platforms = db.execute(
         """
         SELECT p.id, p.name, COUNT(g.id) AS game_count
