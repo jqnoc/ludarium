@@ -314,10 +314,8 @@ html[data-theme="dark"] .stat-card strong { color: var(--lu-text); }
 .form-errors p { margin: 0; }
 .session-entry-form { display: grid; grid-template-columns: 2fr repeat(7, minmax(0, 1fr)); gap: .8rem; align-items: end; }
 .session-entry-form .form-field-span-2 { grid-column: span 2; }
+.session-entry-form .duration-field { grid-column: span 2; }
 .session-entry-form .btn { min-height: 38px; }
-.duration-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
-.duration-inputs label { display: flex; min-width: 0; flex-direction: column; gap: .32rem; color: var(--lu-text-light); font-size: .68rem; font-weight: 700; }
-.duration-inputs input { min-width: 0; }
 .session-range-options { grid-column: 1 / -1; margin-top: .2rem; padding-top: .75rem; border-top: 1px solid var(--lu-border); }
 .session-range-options summary { cursor: pointer; color: var(--lu-teal-dark); font-size: .8rem; font-weight: 700; }
 .session-range-hint { margin: .6rem 0 0; }
@@ -355,8 +353,17 @@ html[data-theme="dark"] .detail-summary h1 { color: var(--lu-text); }
 .detail-stat-ribbon strong { color: var(--lu-navy-mid); font-size: 1.2rem; }
 html[data-theme="dark"] .detail-stat-ribbon strong { color: var(--lu-text); }
 .detail-stat-ribbon span { color: var(--lu-text-light); font-size: .75rem; }
-.quick-session-card { background: var(--lu-gradient-soft); }
+.quick-session-card { container: quick-session / inline-size; background: var(--lu-gradient-soft); }
 .compact-form { gap: .7rem; }
+.duration-field { min-width: 0; }
+.duration-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+.duration-inputs label { display: flex; min-width: 0; flex-direction: column; gap: .25rem; color: var(--lu-text-light); font-size: .68rem; font-weight: 700; }
+.duration-inputs label span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.duration-inputs input { min-width: 0; padding-inline: .4rem; text-align: center; font-variant-numeric: tabular-nums; }
+@container quick-session (max-width: 470px) {
+    .quick-session-card .session-duration-grid { grid-template-columns: 1fr; }
+    .quick-session-card .session-range-grid { grid-template-columns: 1fr; }
+}
 .playthrough-section { margin-bottom: 1.5rem; }
 .playthrough-create-form { flex: 0 1 520px; margin-bottom: 1rem; }
 .playthrough-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .8rem; }
@@ -513,6 +520,7 @@ html[data-theme="dark"] .playthrough-stats strong { color: var(--lu-text); }
     .playthrough-grid { grid-template-columns: 1fr; }
     .session-entry-form { grid-template-columns: 1fr 1fr; }
     .session-entry-form .form-field, .session-entry-form .form-field-span-2 { grid-column: auto; }
+    .session-entry-form .duration-field { grid-column: 1 / -1; }
     .index-grid { grid-template-columns: 1fr; }
     .index-list { grid-template-columns: 1fr; }
     .activity-row { grid-template-columns: 75px 20px minmax(0, 1fr) 70px; }

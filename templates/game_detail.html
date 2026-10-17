@@ -144,7 +144,7 @@
             <div class="section-heading"><h2>Log a session</h2></div>
             <form method="POST" action="{{ url_for('new_session') }}" class="stack-form compact-form" enctype="multipart/form-data" data-session-form>
                 <input type="hidden" name="game_id" value="{{ game.id }}">
-                <div class="form-grid form-grid-2">
+                <div class="form-grid form-grid-2 session-duration-grid">
                     <div class="form-field"><label for="session_date">Date</label><input id="session_date" type="date" name="session_date" value="{{ last_used_session.session_date if last_used_session else '' }}" data-today data-session-date required></div>
                     <div class="form-field duration-field">
                         <span class="form-field-label" data-i18n="sessions.duration">Duration</span>
